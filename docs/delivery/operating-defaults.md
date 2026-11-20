@@ -27,4 +27,6 @@ Resolves the "Decisions still needing human attention" list in [MULTI_AGENT_SYST
 - Branches: `<type>/<issue#>-<slug>`, e.g. `feat/12-asset-versioning`.
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`, `ci:`).
 - One ticket = one issue = one branch = one PR. The PR body uses `.github/pull_request_template.md` and links the issue (`Closes #N`) and governing ADRs.
-- `main` is protected: PRs only, CI required, at least one approval.
+- `main` is protected: changes only through PRs, with no force pushes or deletion. CI status checks become required once the bootstrap PR adds CI.
+- **Verdicts are PR comments, not GitHub approvals.** Every agent and the human push as one GitHub account (`khalidsohaibrana`), and GitHub won't let a PR author approve their own PR. So branch protection requires **0 GitHub approvals**, and the gate is the supervisor checking for the fixed-format verdict comments (`REVIEW:`, `SECURITY:`, `QA:`) posted after the latest commit. The human's production approval is given **in the supervisor session in the human's own words**, never taken from a PR comment, because any agent could post a comment as the shared account. The supervisor then records it on the PR as `HUMAN APPROVAL RECORDED: <quote, date>`.
+- Labels: `lane:frontend`, `lane:backend`, `lane:full-stack`, `lane:infra`, `migration`, `security-review`, `needs-human`, `blocked`, `phase-0`.

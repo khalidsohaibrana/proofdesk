@@ -15,20 +15,25 @@ grep -rniE "<project-name>" agent-system/ && echo "LEAK: project-specific refere
 
 | Path | Purpose |
 |---|---|
-| `agents/supervisor.md` | Supervisor persona: gates G0–G4, operating rules, escalation, reporting format |
+| `agents/supervisor.md` | Supervisor persona: gates G0–G4, dispatch protocol, operating rules, escalation, reporting format |
+| `agents/builder.md` | One ticket → one worktree → one PR with evidence |
+| `agents/reviewer.md` | Independent review against the ticket; read-only; `REVIEW:` verdict comment |
+| `agents/security-reviewer.md` | Threat review for auth/access/tenancy/files/records; read-only; `SECURITY:` verdict comment |
+| `agents/qa.md` | Verifies acceptance criteria with evidence; `QA:` verdict comment + QA summary |
+| `agents/product-analyst.md` | Discovery: SRS, acceptance criteria, edge cases (docs only) |
+| `agents/ux-designer.md` | Discovery: screens, flows, wireframes, visual direction (docs only) |
+| `agents/solution-architect.md` | Discovery: domain/auth ADRs, contracts, environment plan (docs only) |
 | `hooks/guard-main-checkout.mjs` | Blocks code edits in the main checkout; builders work in worktrees |
 | `templates/` | Ticket, QA summary, PR, ADR and project-profile templates |
 | `docs/MULTI_AGENT_SYSTEM_BASELINE.md` | Roles, authority and delivery workflow |
 | `install.sh` | Wires the system into a host project |
-
-Planned: `agents/builder.md`, `agents/reviewer.md`, `agents/security-reviewer.md`, `agents/qa.md`.
 
 ## How a host project uses it
 
 ```
 host-project/
 ├── agent-system/                  ← this folder (vendored, submodule, or plugin later)
-├── .claude/agents/supervisor.md   → symlink to agent-system/agents/supervisor.md
+├── .claude/agents/*.md            → symlinks to agent-system/agents/*.md
 ├── .claude/agent-system.json      ← docs-only paths for the guard hook
 ├── .claude/settings.json          ← registers the guard hook
 └── docs/delivery/

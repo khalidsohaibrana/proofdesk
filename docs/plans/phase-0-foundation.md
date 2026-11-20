@@ -10,7 +10,7 @@
 | P0-4 | **Environment & dependency plan:** environments, third-party services and accounts needed, `.env.example` variable inventory, who creates each account (the human), secrets handling, backup/restore approach | `docs/plans/environments-and-dependencies.md` | Supervisor | 👤 Human (accounts/cost) | ⬜ |
 | P0-5 | **UX direction:** screen inventory from §6.4, key flows (guest verify → review → comment → approve), visual direction and design tokens; low-fi wireframes for the review canvas and submission builder | `product/ux/` | UX subagent | 👤 Human (UX) | ⬜ |
 | P0-6 | **Repo bootstrap:** fork the chosen boilerplate into the repo, strip out-of-scope features (e.g. billing), CI green (lint, format, typecheck, unit, E2E smoke), branch protection on `main`, preview deploys | PR "chore: bootstrap from <boilerplate>" | One builder | Supervisor (G2/G3); 👤 Human (CI/infra) | ⬜ |
-| P0-7 | **Agent roster:** builder, reviewer, security-reviewer and QA agent definitions | `agent-system/agents/*.md` (project-neutral) | Supervisor drafts | 👤 Human | ⬜ |
+| P0-7 | **Agent roster:** builder, reviewer, security-reviewer and QA agent definitions | `agent-system/agents/*.md` (project-neutral) | Supervisor drafts | 👤 Human | 🟡 Drafted 2026-11-21, awaiting acceptance |
 | P0-8 | **Wave 1 backlog:** walking skeleton (auth → workspace/tenancy → project/client), then ≥5 independent tickets with dependencies mapped | GitHub Issues + Project board | Supervisor | Supervisor | ⬜ |
 
 ## Order

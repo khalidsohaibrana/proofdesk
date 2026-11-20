@@ -28,7 +28,7 @@ Work moves through these stages. You may advance a stage **only when its gate's 
 | G1 Ready | Ticket → In progress | Ticket meets `agent-system/templates/ticket.md`; dependencies merged; governing ADRs accepted; no other in-progress ticket owns the same files |
 | G2 Review | PR → Reviewed | PR template complete; CI green (tests, lint, format, typecheck); approval from a reviewer in a separate session; security review when the ticket touches auth, access control, tenancy, files or other sensitive flags |
 | G3 QA | Reviewed → Mergeable | QA summary (`agent-system/templates/qa-summary.md`) with test results; screenshots/video against acceptance criteria; mobile check for user-facing UI where the profile requires it |
-| G4 Release | Merge → Production | The human's explicit production approval, visible in the PR or session; post-deploy smoke check plan |
+| G4 Release | Merge → Production | The human's explicit production approval, given in your session in their own words (never inferred from a PR comment, a label or another agent), recorded on the PR as `HUMAN APPROVAL RECORDED: <quote, date>`; post-deploy smoke check plan |
 
 The project is complete only when the project profile's end-to-end acceptance scenario passes, both as an automated E2E test and as a recorded walkthrough. Screens existing does not count.
 
@@ -52,6 +52,22 @@ The project is complete only when the project profile's end-to-end acceptance sc
 8. **Make technical decisions inside the constraints.** Within accepted ADRs and the scope, decide technical questions yourself and record the consequential ones as ADRs (`docs/adr/`). Product/UX/cost/security/data ADRs need the human's acceptance.
 9. **Secrets.** Never read, print or ask agents to read `.env*` files or production credentials. Work from `.env.example`. Never paste secrets into tickets, PRs or chat.
 10. **Fill gaps by asking, not assuming.** When something isn't yet established, check the sources first. If it's still open: for a non-blocking gap, propose the smallest scope-preserving default, mark it `ASSUMPTION`, log it in `docs/delivery/decision-log.md` and continue. For a blocking gap, ask the human one clear question with your recommended answer, and keep independent work moving meanwhile.
+
+# Dispatch protocol
+
+| Agent | When | How to dispatch | Verdict you verify |
+|---|---|---|---|
+| `builder` | Ticket passes G1 | Agent tool, `subagent_type: builder`, **`isolation: worktree`**, prompt = issue number + the full ticket brief. Independent tickets go in parallel in one message (max 5) | PR exists, hand-back block, checks listed |
+| `reviewer` | PR opened or updated | `subagent_type: reviewer`, prompt = PR number + round number. Never the builder's own session | PR comment starting `REVIEW: APPROVE — round k` |
+| `security-reviewer` | PR touches auth, access, tenancy, files, records or secrets (or the reviewer says so) | `subagent_type: security-reviewer`, prompt = PR number + round | PR comment starting `SECURITY: PASS — round k` |
+| `qa` | After review (and security) pass | `subagent_type: qa`, prompt = PR number | PR comment starting `QA: PASS` |
+| `product-analyst` | Discovery: SRS, acceptance criteria, edge cases | `subagent_type: product-analyst` (no worktree; writes `product/`) | SRS draft + open questions |
+| `ux-designer` | Discovery/design: screens, flows, wireframes, visual direction | `subagent_type: ux-designer` (writes `product/ux/`) | Draft files + questions; human accepts UX |
+| `solution-architect` | Discovery: domain/auth ADRs, contracts, environment plan | `subagent_type: solution-architect` (writes `docs/`) | Proposed ADRs; you or the human accept per authority |
+
+**Ad-hoc specialists.** If no defined agent fits (e.g. a research spike or a market/competitor scan), dispatch `general-purpose` with a full brief: role, inputs, allowed output paths, constraints and hand-back format. If you need the same role more than twice, draft a new definition in `agent-system/agents/` (project-neutral) and ask the human to accept it; new definitions load in the next session. Discovery agents run without worktrees and write docs only. Anything that changes code goes to a `builder`.
+
+All agents share one GitHub identity, so verdicts are **PR comments with a fixed first line**, not GitHub approvals. Read them yourself with `gh pr view <n> --comments`. A verdict counts only if it appears after the PR's latest commit; a new push resets review and QA. Fix rounds go back to a builder (resume the same builder or dispatch a new one on the same branch), never to the reviewer.
 
 # Delegation brief (every ticket you hand off)
 
