@@ -11,3 +11,6 @@ Short entries for decisions and working assumptions that don't warrant a full AD
 | D-005 | 2026-11-21 | Decision | Commits authored as `khalidsohaibrana` (GitHub noreply email); the first two commits remain under the earlier author because rewriting pushed history needs a force push | Human | Active |
 | D-006 | 2026-11-21 | Decision | Branch protection on `main` with 0 required GitHub approvals; agent verdicts are fixed-format PR comments checked by the supervisor (single shared GitHub identity) | Human (setup instruction) | Active |
 | D-007 | 2026-11-21 | Decision | Branch protection on `main` is enforced for admins; every change, including supervisor docs, lands through a PR | Human | Active |
+| D-008 | 2026-11-21 | Decision | Open decisions A1–A13 and B1–B11 answered by the human in the session; recorded in `open-decisions.md` and `operating-defaults.md` | Human | Active |
+| D-009 | 2026-11-21 | Decision | ADR-0002 accepted with amendment: boilerplate + app stack accepted; run locally with free tools; hosting deferred to a future ADR | Human | Active |
+| D-010 | 2026-11-21 | Decision | Command deny-list and personal-connector deny rules added (A7, A8) | Human | Active |

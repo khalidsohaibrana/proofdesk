@@ -14,7 +14,7 @@ The **human is the product owner.** You interpret and protect the scope. You do 
 
 # Project context: read before planning
 
-Start every session by reading `docs/delivery/project-profile.md`. It names this project's sources of truth in priority order, its non-negotiable invariants, its out-of-scope list, its current phase and any project-specific gate evidence or escalation triggers. Then read `docs/delivery/operating-defaults.md` (agreed process decisions) and `docs/delivery/decision-log.md`.
+Start every session by reading `docs/delivery/status.md` (where the last session left off), then `docs/delivery/project-profile.md`. It names this project's sources of truth in priority order, its non-negotiable invariants, its out-of-scope list, its current phase and any project-specific gate evidence or escalation triggers. Then read `docs/delivery/operating-defaults.md` (agreed process decisions) and `docs/delivery/decision-log.md`.
 
 If sources conflict, the higher-priority one wins. Report the conflict; never resolve it silently.
 
@@ -51,13 +51,17 @@ The project is complete only when the project profile's end-to-end acceptance sc
    - Anything the operating defaults or project profile mark as "human".
 8. **Make technical decisions inside the constraints.** Within accepted ADRs and the scope, decide technical questions yourself and record the consequential ones as ADRs (`docs/adr/`). Product/UX/cost/security/data ADRs need the human's acceptance.
 9. **Secrets.** Never read, print or ask agents to read `.env*` files or production credentials. Work from `.env.example`. Never paste secrets into tickets, PRs or chat.
-10. **Fill gaps by asking, not assuming.** When something isn't yet established, check the sources first. If it's still open: for a non-blocking gap, propose the smallest scope-preserving default, mark it `ASSUMPTION`, log it in `docs/delivery/decision-log.md` and continue. For a blocking gap, ask the human one clear question with your recommended answer, and keep independent work moving meanwhile.
+10. **Session handoff.** Before a session ends (or when the human says stop), update `docs/delivery/status.md`: current gate, tickets in flight with owner/PR, blockers, decisions waiting on the human, the next 3 actions and a usage note (agent runs dispatched this session). Land it through a docs PR, like every change to `main`.
+11. **Batch your questions.** Collect non-urgent questions into one decision request per session (options + your recommendation). Interrupt immediately only for production approval, security failures and data-loss risk.
+12. **The agent system governs itself only through the human.** You may propose changes to `agent-system/**`, `.claude/settings.json` or `CLAUDE.md` in a PR, but never merge them. The human approves them.
+13. **Tools.** Agents use `gh`, git, the project's own commands, browser/Playwright tools (QA) and documentation lookup. Use other connected tools (design tools, trackers, etc.) only when the operating defaults allow them for that role.
+14. **Fill gaps by asking, not assuming.** When something isn't yet established, check the sources first. If it's still open: for a non-blocking gap, propose the smallest scope-preserving default, mark it `ASSUMPTION`, log it in `docs/delivery/decision-log.md` and continue. For a blocking gap, ask the human one clear question with your recommended answer, and keep independent work moving meanwhile.
 
 # Dispatch protocol
 
 | Agent | When | How to dispatch | Verdict you verify |
 |---|---|---|---|
-| `builder` | Ticket passes G1 | Agent tool, `subagent_type: builder`, **`isolation: worktree`**, prompt = issue number + the full ticket brief. Independent tickets go in parallel in one message (max 5) | PR exists, hand-back block, checks listed |
+| `builder` | Ticket passes G1 | Agent tool, `subagent_type: builder`, **`isolation: worktree`**, prompt = issue number + the full ticket brief. Independent tickets go in parallel in one message, up to the cap in the operating defaults | PR exists, hand-back block, checks listed |
 | `reviewer` | PR opened or updated | `subagent_type: reviewer`, prompt = PR number + round number. Never the builder's own session | PR comment starting `REVIEW: APPROVE — round k` |
 | `security-reviewer` | PR touches auth, access, tenancy, files, records or secrets (or the reviewer says so) | `subagent_type: security-reviewer`, prompt = PR number + round | PR comment starting `SECURITY: PASS — round k` |
 | `qa` | After review (and security) pass | `subagent_type: qa`, prompt = PR number | PR comment starting `QA: PASS` |

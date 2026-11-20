@@ -1,6 +1,6 @@
 # Open Decisions: recommended answers for human review
 
-**Status:** Awaiting human review (prepared 2026-11-21)
+**Status:** Answered by the product owner in the session on 2026-11-21. Merged = approved.
 
 **How to use this sheet:**
 1. Each item has a recommended answer. Tick **Approve**, or tick **Change** and write your answer on the line under it.
@@ -21,7 +21,7 @@
 - You create the account and token; agents never see the token value.
 
 **Alternative:** keep a single identity and comment-based verdicts until production (current setup; verdicts can be forged).
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A2 🔴 Parallelism and model mix
 **Recommended:**
@@ -29,7 +29,7 @@
 - Models: supervisor, reviewer, security-reviewer and the discovery agents on **Opus**; builders and QA on **Sonnet**.
 
 **Alternative:** 5 builders from Wave 1; all Opus (higher quality, about 3–5× the usage).
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A3 🔴 Usage budget
 **Recommended:**
@@ -38,7 +38,7 @@
 - It pauses new dispatches if a single ticket needs more than 3 builder runs.
 
 **Alternative:** set a fixed weekly budget and have the supervisor stop at it.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A4 🟠 Your availability and check-ins
 **Recommended:**
@@ -47,7 +47,7 @@
 - While waiting, it works on independent tickets.
 
 **Alternative:** a fixed daily check-in time.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A5 🟠 Session memory and handoff
 **Recommended:**
@@ -56,7 +56,7 @@
 - Every new session starts by reading it, so nothing depends on chat history.
 
 **Alternative:** rely on GitHub Issues and the decision log only.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A6 🟠 Who may change the agent system itself
 **Recommended:**
@@ -64,7 +64,7 @@
 - The supervisor may propose them but not merge them.
 
 **Alternative:** the supervisor may merge wording-only fixes.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A7 🟠 Command safety deny-list
 **Recommended:** add these to `.claude/settings.json` as denied commands:
@@ -78,7 +78,7 @@
 Agents may still run normal dev commands.
 
 **Alternative:** prompt-level rules only.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A8 🟠 External tools (MCP) available to agents
 **Recommended:**
@@ -87,7 +87,7 @@ Agents may still run normal dev commands.
 - Exception: Figma is allowed for `ux-designer` if you want designs in Figma.
 
 **Alternative:** allow everything that's connected.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A9 🟠 Evidence storage
 **Recommended:**
@@ -95,7 +95,7 @@ Agents may still run normal dev commands.
 - Longer recordings go to a private S3 prefix `evidence/` (added in the environment plan) and are linked from the PR.
 
 **Alternative:** a shared Google Drive folder.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → Screenshots and short videos attached to the PR; **longer videos via Loom** (linked from the PR).
 
 ### A10 🟢 Quality targets for the agent system
 **Recommended targets** (reviewed after Wave 2):
@@ -106,7 +106,7 @@ Agents may still run normal dev commands.
 - every PR has evidence
 
 **Alternative:** track the numbers without targets.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A11 🟠 Test coverage requirement
 **Recommended:**
@@ -117,7 +117,7 @@ Agents may still run normal dev commands.
 (Your global Claude rules ask for 80% everywhere; this narrows it for UI.)
 
 **Alternative:** 80% on everything.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### A12 🟠 Required CI checks (once the bootstrap PR adds CI)
 **Recommended required checks on `main`:**
@@ -130,7 +130,7 @@ Agents may still run normal dev commands.
 - the cross-tenant access test suite
 
 **Alternative:** start with lint, typecheck and unit only, then add the rest by Wave 2.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Start minimal:** lint, typecheck and unit tests required first; add the rest by Wave 2.
 
 ### A13 🟢 Recording the presentation
 **Recommended:**
@@ -139,7 +139,7 @@ Agents may still run normal dev commands.
 - Cut the final video from those.
 
 **Alternative:** record only Wave 1.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Not approved now.** No demo log; decide recording later.
 
 ---
 
@@ -153,7 +153,7 @@ Agents may still run normal dev commands.
 - about $30–75/month
 
 **Alternatives:** keep Clerk for Phase 1A; Trigger.dev instead of the worker; R2 + ClamAV.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Use everything free and run locally for now.** No paid hosting or cloud vendors yet (see ADR-0002 amendment).
 
 ### B2 🔴 Accounts you create (agents can't)
 **Recommended set:**
@@ -167,11 +167,11 @@ Agents may still run normal dev commands.
 - a domain registrar
 
 You add the keys to Vercel/GitHub secrets yourself. The supervisor gives you the exact variable list in the environment plan.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Deferred with B1.** No cloud accounts for now; the only account needed is the review bot GitHub account (A1).
 
 ### B3 🔴 Product domain and sending email
 **Recommended:** buy a short product domain; send email from `mail.<domain>` (SPF/DKIM/DMARC); the app runs at `app.<domain>`.
-- [ ] Approve  - [ ] Change → ______ (domain: ______)
+- [ ] Approve  - [x] Change → **Deferred** until hosting.
 
 ### B4 🟠 Launch market and data region
 **Recommended:**
@@ -179,7 +179,7 @@ You add the keys to Vercel/GitHub secrets yourself. The supervisor gives you the
 - Write a short privacy notice before any real client uploads files.
 
 **Alternative:** US region by default.
-- [ ] Approve  - [ ] Change → region: ______
+- [ ] Approve  - [x] Change → **Decide when moving to hosting.**
 
 ### B5 🟠 Legal basics before a real external client uses it
 **Recommended:**
@@ -187,7 +187,7 @@ You add the keys to Vercel/GitHub secrets yourself. The supervisor gives you the
 - Agents may draft them, but they are not legal advice.
 
 **Alternative:** pilot under a simple written pilot agreement only.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **A simple written pilot agreement with each studio** for now.
 
 ### B6 🟠 File limits for the pilot
 **Recommended:**
@@ -196,7 +196,7 @@ You add the keys to Vercel/GitHub secrets yourself. The supervisor gives you the
 - 20 GB per workspace
 
 These are soft limits shown in the UI; they get revisited from real usage in Phase 1B.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Smaller limits: 50 MB per file, 50 pages per PDF, 5 GB per workspace.**
 
 ### B7 🟠 Data retention during the pilot
 **Recommended:**
@@ -204,7 +204,7 @@ These are soft limits shown in the UI; they get revisited from real usage in Pha
 - A studio can request workspace deletion, which the founder performs manually.
 - Approval records are never deleted while the workspace exists.
 - Test a restore from Neon point-in-time recovery once before the first external client.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Decide later.**
 
 ### B8 🟠 UX and brand direction
 **Recommended:**
@@ -213,7 +213,7 @@ These are soft limits shown in the UI; they get revisited from real usage in Pha
 - You pick one before any UI ticket.
 
 **Alternative:** use the boilerplate's default shadcn look for the pilot.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### B9 🟢 Timeline
 **Recommended:**
@@ -221,16 +221,16 @@ These are soft limits shown in the UI; they get revisited from real usage in Pha
 - Wave 1 (skeleton + 3–5 parallel tickets): about 2 weeks.
 - Phase 1A complete (end-to-end scenario passing): 6–8 weeks.
 - Pilot onboarding starts when the 11-step scenario passes on real devices.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### B10 🟢 Repository license
 The repo is public and has no license, so the code is all rights reserved: people can see it but not reuse it.
 **Recommended:** keep it that way (no LICENSE file) while ProofDesk is a commercial product.
 **Alternative:** an open-source license.
-- [ ] Approve  - [ ] Change → ______
+- [x] Approve  - [ ] Change
 
 ### B11 🟢 Pilot recruitment (outside the agents' work)
 **Recommended:**
 - Start recruiting 3–5 studios during Wave 1, so pilots are lined up when the scenario passes.
 - Agents can draft the outreach message and a 1-page pilot brief on request.
-- [ ] Approve  - [ ] Change → ______
+- [ ] Approve  - [x] Change → **Not approved now.**
