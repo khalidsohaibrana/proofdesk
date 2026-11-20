@@ -1,0 +1,11 @@
+{
+  "profile": "docs/delivery/project-profile.md",
+  "docsOnlyPaths": [
+    "product/",
+    "docs/",
+    "agent-system/",
+    ".claude/",
+    ".github/pull_request_template.md",
+    ".github/ISSUE_TEMPLATE/"
+  ]
+}
