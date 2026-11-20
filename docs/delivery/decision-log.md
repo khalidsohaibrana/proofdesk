@@ -10,3 +10,4 @@ Short entries for decisions and working assumptions that don't warrant a full AD
 | D-004 | 2026-11-21 | Decision | Builder, reviewer, security-reviewer and QA agent definitions drafted in `agent-system/agents/` | Supervisor setup | Awaiting human acceptance |
 | D-005 | 2026-11-21 | Decision | Commits authored as `khalidsohaibrana` (GitHub noreply email); the first two commits remain under the earlier author because rewriting pushed history needs a force push | Human | Active |
 | D-006 | 2026-11-21 | Decision | Branch protection on `main` with 0 required GitHub approvals; agent verdicts are fixed-format PR comments checked by the supervisor (single shared GitHub identity) | Human (setup instruction) | Active |
+| D-007 | 2026-11-21 | Decision | Branch protection on `main` is enforced for admins; every change, including supervisor docs, lands through a PR | Human | Active |
