@@ -1,6 +1,6 @@
 # ADR-0002: Tech stack and starting boilerplate
 
-- **Status:** Proposed (awaiting human acceptance, because it involves cost and vendor choices)
+- **Status:** Accepted with amendment (human, 2026-11-21). Application stack and boilerplate accepted; **hosting and paid vendors deferred**. Run locally with free tools for now (see Amendment).
 - **Date:** 2026-11-21
 - **Deciders:** Human (accept), Supervisor (proposes)
 - **Requires human acceptance:** yes
@@ -43,7 +43,34 @@ ProofDesk Phase 1 needs: multi-tenant workspaces with Owner/Member roles and inv
 
 **Estimated pilot cost:** about **$30–75/month**. Some prices were unverified; see the research doc's verification notes.
 
-## Consequences
+## Amendment (2026-11-21): local-first, free tooling
+
+The product owner decided: **use everything free and run locally for now.**
+
+**Still accepted:**
+- fork `ixartz/SaaS-Boilerplate`
+- swap Clerk for Better Auth
+- the application libraries in the table above: Next.js, Drizzle, react-pdf/pdf.js, react-zoom-pan-pinch, pg-boss, React Email, Vitest, Playwright
+
+**Local replacements for the cloud services**, all run with Docker Compose at no cost:
+
+| Cloud choice (deferred) | Local / free replacement | Note |
+|---|---|---|
+| Neon Postgres | Postgres 17 container (+ PGlite for unit tests, already in the boilerplate) | Same SQL migrations; RLS and triggers work the same |
+| AWS S3 | S3-compatible local server: **MinIO** container | Code uses the AWS SDK S3 client, so switching to S3/R2 later is a config change. MinIO is AGPL, but it runs only as a separate local dev service and is never linked into or shipped with our code. SeaweedFS (Apache-2.0) is the fallback |
+| GuardDuty malware scan | **ClamAV** container called from the worker | GPL, also a separate service only. Same `pending_scan → clean/infected` flow |
+| Resend email | **Mailpit** container (catches all email; web inbox at localhost) | React Email templates unchanged; switch to a real provider at hosting time |
+| Vercel + Fly.io | `next dev` / `next start` + the pg-boss worker as a local process | — |
+| Sentry | Console/pino logs locally; Sentry free tier optional | — |
+| Phone testing | Same Wi-Fi via the laptop's LAN IP, or a free tunnel (e.g. Cloudflare quick tunnel) for a real-device check | The tunnel is for test sessions only; never use it with real client data |
+
+**Consequences of the amendment:**
+- Pilot cost while local: **$0**.
+- Real external pilots can't start until hosting is decided. That becomes a new ADR (hosting and vendors, region per open decision B4) before Phase 1A pilot onboarding.
+- Bootstrap (P0-6) must add a `docker-compose.yml` for Postgres, MinIO, ClamAV and Mailpit, plus `.env.example` pointing at them, so every builder worktree runs the same stack.
+- Code must reach storage, email and scanning through small adapter interfaces, so the hosting ADR only changes configuration.
+
+## Consequences (original proposal)
 - **Week-1 spike before any viewer feature work:** render a real large architecture PDF (A1/A0) on a real iPhone. If pdf.js fails, switch to the EmbedPDF fallback through a new ADR.
 - File bytes never pass through Vercel functions (4.5 MB body limit). Everything heavy runs in the worker.
 - Presigned GET links can't be revoked one by one, so keep their lifetimes short. Revocation is enforced at the link-signing step.

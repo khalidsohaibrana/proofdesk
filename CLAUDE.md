@@ -25,4 +25,6 @@ ProofDesk is an architecture-first client design review and approval platform. E
 - Do not add roles, states, entities, permissions or features that aren't in the product docs. Put ideas in `product/future-considerations.md`.
 - Tenant isolation and authorization are enforced server-side, and every such change ships with an allowed-path test and a denied-path test.
 - Never claim something is done, green or verified without the evidence (command output, CI link, screenshot).
+- Tools: only `gh`, git, project commands, browser/Playwright (QA) and docs lookup. Figma is for `ux-designer` only. Don't use other connected tools.
+- Environment: **local only** (Docker Compose). No deploys and no paid services until a hosting ADR is accepted.
 - Conventions: see `docs/delivery/operating-defaults.md` (branches, Conventional Commits, PR template).
