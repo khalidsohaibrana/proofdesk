@@ -9,3 +9,11 @@ After a builder run, attach its GitHub PR URL to the ticket. The reviewer runs a
 Run output and board state are saved under `dashboard/data/`, which Git ignores. If the dashboard restarts during an agent run, that run becomes interrupted and its ticket becomes blocked. The UI offers a stop control for running agents. The dashboard does not push branches, create PRs, or merge code on its own. The repository's existing delivery rules continue to govern those steps.
 
 Set `PORT` to change the listener port and `DASHBOARD_DATA_PATH` to store board state elsewhere. Keep the server on loopback. It has no user authentication and can launch local Codex processes.
+
+## Codex authentication
+
+The dashboard invokes the same Codex CLI installation and login used by your terminal. Check it with `codex login status`. If signed out, run `codex login` in the terminal and complete the account flow. A 401 response from the model service means that login is missing or rejected. The dashboard does not store or request your credentials.
+
+## Remote access
+
+GitHub Pages can host static files but cannot run the dashboard's Node server or its Codex and Git processes. For a private remote workspace, GitHub Codespaces can run the server and expose port 4173 to your signed-in GitHub session. Keep the forwarded port private. Codex CLI must be installed and authenticated in that Codespace. A standalone hosted deployment needs login protection and durable storage before it can safely expose agent controls.

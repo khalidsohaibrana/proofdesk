@@ -1,16 +1,14 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { readFile, writeFile, mkdir, symlink, access } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(root, "..");
 const dataPath =
   process.env.DASHBOARD_DATA_PATH || join(root, "data", "state.json");
-const codexHome = process.env.CODEX_HOME || join(root, "data", "codex-home");
 const port = Number(process.env.PORT || 4173);
 const active = new Map();
 const launching = new Set();
@@ -62,22 +60,6 @@ async function input(req) {
   }
   return JSON.parse(raw || "{}");
 }
-async function codexEnvironment() {
-  await mkdir(codexHome, { recursive: true });
-  const auth = join(codexHome, "auth.json");
-  try {
-    await access(auth);
-  } catch {
-    const original = join(homedir(), ".codex", "auth.json");
-    try {
-      await access(original);
-      await symlink(original, auth);
-    } catch {
-      /* Codex reports the missing login. */
-    }
-  }
-  return { ...process.env, CODEX_HOME: codexHome };
-}
 function command(program, args, cwd) {
   return new Promise((done) => {
     const child = spawn(program, args, {
@@ -93,12 +75,27 @@ function command(program, args, cwd) {
     child.on("close", (code) => done({ code, output: output.trim() }));
   });
 }
+async function requireCodexLogin() {
+  const result = await command("codex", ["login", "status"], repo);
+  if (result.code !== 0) {
+    throw new Error(
+      "Codex CLI is not signed in. Run `codex login` in a terminal, complete account verification, then restart the dashboard.",
+    );
+  }
+}
+function codexFailure(output) {
+  if (/401 Unauthorized|Missing bearer or basic authentication/i.test(output)) {
+    return "Codex authentication was rejected. Run `codex login status` and sign in again with `codex login`, then restart the dashboard.";
+  }
+  return output.slice(-1000);
+}
 function ticketById(value, id) {
   const ticket = value.tickets.find((item) => item.id === id);
   if (!ticket) throw new Error("Ticket not found");
   return ticket;
 }
 async function launch(ticket, role) {
+  await requireCodexLogin();
   const id = randomUUID();
   const branch =
     ticket.branch ||
@@ -167,7 +164,7 @@ async function launch(ticket, role) {
     ],
     {
       cwd: worktree,
-      env: await codexEnvironment(),
+      env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
@@ -204,7 +201,7 @@ async function launch(ticket, role) {
       const current = ticketById(value, ticket.id);
       const run = value.runs.find((item) => item.id === id);
       run.status = code === 0 ? "completed" : "failed";
-      run.output = output.trim();
+      run.output = code === 0 ? output.trim() : codexFailure(output);
       run.answer = answer.trim();
       run.finishedAt = new Date().toISOString();
       if (code !== 0) current.status = "blocked";
@@ -234,6 +231,7 @@ async function supervisor(message) {
   if (supervisorBusy) throw new Error("Supervisor is already responding");
   supervisorBusy = true;
   try {
+    await requireCodexLogin();
     const current = await update((value) => {
       value.messages.push({
         role: "user",
@@ -247,7 +245,6 @@ async function supervisor(message) {
       .map((item) => `${item.role}: ${item.content}`)
       .join("\n\n")}`;
     const outputFile = join(root, "data", `${randomUUID()}.answer`);
-    await codexEnvironment();
     const child = spawn(
       "codex",
       [
@@ -264,7 +261,7 @@ async function supervisor(message) {
       ],
       {
         cwd: repo,
-        env: { ...process.env, CODEX_HOME: codexHome },
+        env: process.env,
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
@@ -296,7 +293,7 @@ async function supervisor(message) {
       } catch {
         /* Preserve the CLI answer if schema parsing fails. */
       }
-    } else answer = `Supervisor could not respond. ${errorText.slice(-1000)}`;
+    } else answer = `Supervisor could not respond. ${codexFailure(errorText)}`;
     await update((value) => {
       for (const item of Array.isArray(proposed) ? proposed.slice(0, 10) : []) {
         if (
