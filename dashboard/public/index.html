@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ProofDesk · Agent workspace</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">P</span><span>ProofDesk<small>Agent workspace</small></span></div>
+      <nav aria-label="Workspace"><a class="active" href="#overview">Overview</a><a href="#supervisor">Supervisor</a><a href="#tickets">Tickets</a><a href="#activity">Activity</a></nav>
+      <div class="sidebar-foot"><span class="live-dot"></span> Local workspace <small>Codex connected through CLI</small></div>
+    </aside>
+    <main>
+      <header><div><p class="eyebrow">WORKSPACE / PROOFDESK</p><h1>Agent command center</h1><p class="sub">Plan with your supervisor and track work from ticket to review.</p></div><div class="header-date" id="today"></div></header>
+      <section class="metrics" id="overview"><div class="metric"><span>Ready tickets</span><strong id="ready-count">0</strong></div><div class="metric"><span>Builders running</span><strong id="running-count">0 / 5</strong></div><div class="metric"><span>Awaiting review</span><strong id="review-count">0</strong></div><div class="metric"><span>Blocked</span><strong id="blocked-count">0</strong></div></section>
+      <div class="columns">
+        <section class="panel supervisor" id="supervisor"><div class="panel-head"><div><p class="eyebrow">YOUR MAIN CONTACT</p><h2>Supervisor</h2></div><span class="role-pill">Plans and assigns</span></div><div class="messages" id="messages"><div class="empty">Ask the supervisor about the plan, decisions, or the next ticket.</div></div><form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Message supervisor</label><textarea id="chat-input" placeholder="Ask your supervisor…" required rows="2"></textarea><button type="submit">Send message →</button></form></section>
+        <section class="panel tickets" id="tickets"><div class="panel-head"><div><p class="eyebrow">DELIVERY QUEUE</p><h2>Tickets</h2></div><span class="role-pill">One ticket · one branch</span></div><form id="ticket-form" class="ticket-form"><label for="ticket-title">New ticket</label><input id="ticket-title" placeholder="Ticket title" maxlength="120" required><textarea id="ticket-description" placeholder="Scope, acceptance criteria, tests, and governing ADRs" rows="3" required></textarea><button type="submit">Add to queue +</button></form><div id="ticket-list" class="ticket-list"></div></section>
+      </div>
+      <section class="panel activity" id="activity"><div class="panel-head"><div><p class="eyebrow">EXECUTION LOG</p><h2>Builder activity</h2></div><span class="role-pill">Isolated worktrees</span></div><div id="runs" class="runs"><div class="empty">Builder runs will appear here.</div></div></section>
+    </main>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
