@@ -60,6 +60,20 @@ export function enterClass(key) {
   return ' enter';
 }
 
+const VERBS = {
+  Read: 'Reading', Write: 'Writing', Edit: 'Editing', MultiEdit: 'Editing', Bash: 'Running', Grep: 'Searching for',
+  Glob: 'Looking for files', Agent: 'Assigning', Task: 'Assigning', SendMessage: 'Messaging', WebFetch: 'Fetching',
+  WebSearch: 'Searching the web for', TodoWrite: 'Updating the task list', ToolSearch: 'Loading tools', Monitor: 'Watching', TaskOutput: 'Checking on',
+};
+/** Turn a tool line ("Read · path") or a progress line ("Running Check git") into readable present tense. */
+export function humanize(text) {
+  const value = String(text ?? '').trim();
+  const match = /^(\w+) · (.*)$/.exec(value);
+  if (!match) return value;
+  const verb = VERBS[match[1]];
+  return verb ? `${verb} ${match[2]}` : value;
+}
+
 /** Avatar bubble with the persona's emoji and colour. */
 export const avatar = (who, size = '') => h('span', { class: `avatar ${size} hue-${who.hue}`, 'aria-hidden': 'true' }, who.emoji);
 

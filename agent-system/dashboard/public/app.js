@@ -2,7 +2,7 @@
 import { renderPane } from './pane.js';
 import { CORE_TEAM, assignPersonas, persona } from './team.js';
 import { renderTimeline } from './timeline.js';
-import { avatar, h, relPath, setClock, statusOf } from './ui.js';
+import { asksHuman, avatar, elapsed, h, humanize, relPath, setClock, statusOf } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
 const THEME_KEY = 'agent-dashboard-theme';
@@ -66,6 +66,38 @@ function renderTeam() {
   }));
 }
 
+// ---- "Now" strip: always-visible live status ------------------------------------------------
+function sageStep() {
+  const step = snapshot.activity.find((entry) => entry.agentId === 'supervisor' && ['tool', 'dispatch', 'followup'].includes(entry.kind));
+  return step ? humanize(relPath(step.text, snapshot.project.path)) : 'Thinking…';
+}
+
+function liveRow(who, text, timer, tone) {
+  return h('div', { class: `live-row tone-${tone}` },
+    h('span', { class: 'live-spin', 'aria-hidden': 'true' }), avatar(who, 'avatar-xs'),
+    h('b', {}, who.name), h('span', { class: 'live-text' }, text), timer && h('span', { class: 'live-time' }, timer));
+}
+
+function renderLive() {
+  const root = snapshot.project.path;
+  const working = Object.values(snapshot.agents).filter((agent) => agent.status === 'running')
+    .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+  const rows = [];
+  const lastSage = [...snapshot.messages].reverse().find((message) => message.role === 'supervisor');
+  if (snapshot.session.status === 'running') rows.push(liveRow(persona('supervisor'), sageStep(), '', 'live'));
+  else if (!snapshot.replay && snapshot.running && !working.length && lastSage && asksHuman(lastSage.text)) {
+    rows.push(liveRow(persona('supervisor'), 'is waiting for your decision. Reply below.', '', 'wait'));
+  }
+  for (const agent of working) {
+    const who = personas.get(agent.id) ?? persona(agent.type);
+    rows.push(liveRow(who, humanize(relPath(agent.progress || agent.lastTool || 'Getting started…', root)), elapsed(agent), 'live'));
+  }
+  $('live').hidden = !rows.length;
+  $('live').replaceChildren(...rows);
+  $('live-count').hidden = !working.length;
+  $('live-count').textContent = String(working.length);
+}
+
 // ---- header, sidebar footer, composer -----------------------------------------------------
 function renderChrome() {
   const { billing, session, board, usage } = snapshot;
@@ -119,6 +151,7 @@ function render() {
   const pinned = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 80;
   renderChrome();
   renderTeam();
+  renderLive();
   renderTimeline($('timeline'), snapshot, personas, {
     onOpen: openAgent,
     onSuggest: (text) => { $('input').value = text; send(); },

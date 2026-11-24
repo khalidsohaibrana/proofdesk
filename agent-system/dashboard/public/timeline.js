@@ -2,7 +2,7 @@
 // inline delegation cards for every teammate Sage assigns, in the order they happened.
 import { renderMarkdown } from './markdown.js';
 import { persona } from './team.js';
-import { asksHuman, avatar, elapsed, enterClass, h, relPath, statusOf } from './ui.js';
+import { asksHuman, avatar, elapsed, enterClass, h, humanize, relPath, statusOf } from './ui.js';
 
 const SAGE = persona('supervisor');
 const SUGGESTIONS = [
@@ -67,16 +67,16 @@ function messageView(message, root) {
     prose);
 }
 
-function stepsView(entries, root, key) {
+function stepsView(entries, root, key, active) {
   const blocked = entries.filter((entry) => entry.kind !== 'tool');
   const tools = entries.filter((entry) => entry.kind === 'tool');
   return h('div', { class: 'steps-wrap' },
     tools.length > 0 && h('details', {
-      class: 'steps', open: openGroups.has(key),
+      class: `steps${active ? ' active' : ''}`, open: active || openGroups.has(key),
       on: { toggle: (event) => (event.currentTarget.open ? openGroups.add(key) : openGroups.delete(key)) },
     },
-      h('summary', {}, h('span', { class: 'steps-icon', 'aria-hidden': 'true' }, '⚙'), `Sage used ${tools.length} tool${tools.length > 1 ? 's' : ''}`),
-      h('ul', {}, tools.map((entry) => h('li', {}, relPath(entry.text, root))))),
+      h('summary', {}, h('span', { class: active ? 'spinner-ring' : 'steps-icon', 'aria-hidden': 'true' }, active ? '' : '⚙'), active ? 'Sage is working' : `Sage used ${tools.length} tool${tools.length > 1 ? 's' : ''}`),
+      h('ul', {}, tools.map((entry, index) => h('li', { class: active && index === tools.length - 1 ? 'current' : '' }, humanize(relPath(entry.text, root)))))),
     blocked.map((entry) => h('div', { class: `notice notice-${entry.kind}` }, entry.kind === 'denied' ? '⛔ Blocked: ' : '⚠ ', relPath(entry.text, root))));
 }
 
@@ -90,7 +90,8 @@ function delegationView(agent, who, root, onOpen) {
       h('div', { class: 'deleg-who' }, h('span', { class: 'deleg-name' }, `Sage assigned ${who.name}`), h('span', { class: 'deleg-role' }, `${who.role}${agent.rounds > 1 ? ` · round ${agent.rounds}` : ''}`)),
       h('span', { class: `chip chip-${state.tone}` }, state.tone === 'live' && h('span', { class: 'spinner', 'aria-hidden': 'true' }), state.label)),
     h('div', { class: 'deleg-title' }, agent.description || 'Untitled task'),
-    live && h('div', { class: 'deleg-live' }, live),
+    live && h('div', { class: 'deleg-live' }, h('span', { class: 'live-spin', 'aria-hidden': 'true' }), humanize(live)),
+    agent.status === 'running' && h('div', { class: 'progress', 'aria-hidden': 'true' }),
     summary && h('div', { class: 'deleg-summary' }, summary),
     h('div', { class: 'deleg-foot' },
       h('span', {}, [elapsed(agent), agent.toolUses ? `${agent.toolUses} tool calls` : '', agent.background ? 'in background' : ''].filter(Boolean).join(' · ')),
@@ -108,16 +109,6 @@ function followupView(entry, snapshot, personas, onOpen) {
     target && h('button', { class: 'link-btn', type: 'button', on: { click: () => onOpen(target.id) } }, 'Open ›'));
 }
 
-function workingView(snapshot, personas) {
-  const busy = Object.values(snapshot.agents).filter((agent) => agent.status === 'running');
-  if (snapshot.session.status !== 'running' && !busy.length) return null;
-  const names = busy.map((agent) => personas.get(agent.id)?.name).filter(Boolean);
-  const text = snapshot.session.status === 'running'
-    ? `Sage is working${names.length ? ` · ${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} on it` : ''}…`
-    : `${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} still working…`;
-  return h('div', { class: 'working' }, h('span', { class: 'spark', 'aria-hidden': 'true' }, '✻'), text);
-}
-
 /**
  * Render the conversation.
  * @param {HTMLElement} container
@@ -131,12 +122,15 @@ export function renderTimeline(container, snapshot, personas, { onOpen, onSugges
     container.replaceChildren(emptyState(team, onSuggest));
     return;
   }
-  const views = buildTimeline(snapshot).map((item) => {
+  const items = buildTimeline(snapshot);
+  const lastIndex = items.length - 1;
+  const sageBusy = snapshot.session.status === 'running';
+  const views = items.map((item, index) => {
     if (item.kind === 'message') return messageView(item.message, root);
-    if (item.kind === 'steps') return stepsView(item.entries, root, item.seq);
+    if (item.kind === 'steps') return stepsView(item.entries, root, item.seq, sageBusy && index === lastIndex);
     if (item.kind === 'followup') return followupView(item.entry, snapshot, personas, onOpen);
     return delegationView(item.agent, personas.get(item.agent.id) ?? persona(item.agent.type), root, onOpen);
   });
   const error = snapshot.session.error && h('div', { class: 'notice notice-error' }, `⚠ ${snapshot.session.error}`);
-  container.replaceChildren(...views, workingView(snapshot, personas) ?? '', error || '');
+  container.replaceChildren(...views, error || '');
 }

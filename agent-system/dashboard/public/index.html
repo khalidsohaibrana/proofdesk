@@ -55,7 +55,7 @@
           <div class="topbar-actions">
             <span class="replay-badge" id="replay" hidden></span>
             <span class="usage" id="usage" title="The CLI's estimate at API prices. Not charged: runs on your plan."></span>
-            <button class="pill-btn" id="toggle-pane" aria-expanded="true" aria-controls="pane">Team activity</button>
+            <button class="pill-btn" id="toggle-pane" aria-expanded="true" aria-controls="pane">Team activity <span class="count" id="live-count" hidden></span></button>
           </div>
         </header>
 
@@ -63,6 +63,7 @@
           <div class="chat-inner" id="timeline" aria-live="polite"></div>
         </section>
 
+        <section class="live" id="live" aria-label="Working now" aria-live="polite" hidden></section>
         <form class="composer" id="composer">
           <p class="billing-banner" id="billing-banner" role="alert" hidden></p>
           <div class="composer-box">
