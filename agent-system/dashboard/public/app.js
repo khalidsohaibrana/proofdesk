@@ -22,6 +22,28 @@ function toast(message) {
   toast.timer = setTimeout(() => box.classList.remove('show'), 4000);
 }
 
+const WARN_RATIO = 0.8;
+const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n));
+let meterSeen = { warned: false, rotations: null };
+
+/** Context meter in the header, with a toast at 80% (once per session) and when a fresh session starts. */
+function renderMeter({ usage, contextBudget, replay }) {
+  const meter = $('meter');
+  meter.hidden = Boolean(replay) || !contextBudget;
+  if (meter.hidden) return;
+  const tokens = usage.contextTokens ?? 0;
+  const ratio = Math.min(1, tokens / contextBudget);
+  const warn = ratio >= WARN_RATIO;
+  meter.classList.toggle('warn', warn);
+  $('meter-fill').style.width = `${Math.round(ratio * 100)}%`;
+  $('meter-text').textContent = `${compact(tokens)} / ${compact(contextBudget)}`;
+  meter.setAttribute('aria-label', `Context ${tokens} of ${contextBudget} tokens${warn ? ', nearly full' : ''}`);
+  const rotations = usage.rotations ?? 0;
+  if (meterSeen.rotations !== null && rotations > meterSeen.rotations) toast('Sage saved a checkpoint. Your next message starts a fresh session.');
+  else if (warn && !meterSeen.warned && meterSeen.rotations !== null) toast(`Sage’s context is ${Math.round(ratio * 100)}% full. A fresh session starts when it is reached.`);
+  meterSeen = { warned: warn, rotations };
+}
+
 async function post(path, body = {}) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const value = await response.json().catch(() => ({}));
@@ -154,11 +176,12 @@ function renderChrome() {
   const busy = Object.values(snapshot.agents).filter((agent) => agent.status === 'running').length;
   $('sage-status').textContent = working ? `Working${busy ? ` · ${busy} teammate${busy > 1 ? 's' : ''} on it` : ''}` : busy ? `${busy} teammate${busy > 1 ? 's' : ''} working` : snapshot.running ? 'Waiting for you' : 'Idle';
   $('sage-status').className = `who-status ${working || busy ? 'live' : ''}`;
+  renderMeter(snapshot);
   $('usage').textContent = usage.costUsd ? `≈ $${usage.costUsd.toFixed(2)} API-equivalent · on plan` : '';
   $('stop').hidden = Boolean(snapshot.replay) || !(snapshot.running && (working || busy));
   renderReplay(snapshot.replay);
   $('send').disabled = !billing.ok && !snapshot.running;
-  $('reset').disabled = snapshot.running;
+  $('reset').disabled = snapshot.running && (session.status === 'running' || snapshot.rotating || !session.id);
 }
 
 function renderPaneShell() {
@@ -279,7 +302,7 @@ $('input').addEventListener('keydown', (event) => {
 });
 $('stop').addEventListener('click', () => post('/api/stop').then(() => toast('Stopping Sage and the team…')).catch((error) => toast(error.message)));
 $('reset').addEventListener('click', () => {
-  if (window.confirm('Start a new session with Sage? This clears the conversation and team history from the dashboard.')) {
+  if (window.confirm('Start a new session with Sage? Sage saves a checkpoint first, then the conversation and team history are cleared from the dashboard.')) {
     post('/api/reset').then(() => { view.selectedAgent = null; toast('New session ready'); }).catch((error) => toast(error.message));
   }
 });

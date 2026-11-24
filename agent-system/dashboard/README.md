@@ -24,6 +24,7 @@ Open http://127.0.0.1:4173.
 | Project folder | `PROJECT_DIR=/path/to/repo` (default: two levels up, the repo root) |
 | Supervisor model | `SUPERVISOR_MODEL=sonnet`, or `"dashboard": {"model": "sonnet"}` in `.claude/agent-system.json` (default: the model in the supervisor agent file) |
 | Allowed tools | `"dashboard": {"allowedTools": [...]}` in `.claude/agent-system.json` (defaults are in `lib/session.mjs`) |
+| Context budget | `SAGE_CONTEXT_BUDGET=100000` (tokens, default 100000). At or over it, with Sage idle and no teammates working, the dashboard sends `CHECKPOINT`, waits up to 180 s for `CHECKPOINT SAVED`, stops the process, and starts the next message in a fresh session (prefixed with a line telling Sage to read `docs/delivery/status.md` and `memory.md`). The header meter turns amber at 80%. "New session" saves a checkpoint first too. |
 | State file | `DASHBOARD_DATA_PATH` (default `data/state.json`, git-ignored) |
 
 ## The interface

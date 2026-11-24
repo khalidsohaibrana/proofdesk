@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+// Fake `claude` CLI for tests. `auth status` reports a subscription login; otherwise it speaks
+// stream-json: one init, then an assistant + result per user line. Records argv and messages to FAKE_LOG.
+// The first process reports a large context; later ones report a small one.
+// A message "CHECKPOINT" is answered with FAKE_CHECKPOINT_REPLY (default "CHECKPOINT SAVED").
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline';
+
+const args = process.argv.slice(2);
+if (args[0] === 'auth') {
+  process.stdout.write(`${JSON.stringify({ loggedIn: true, authMethod: 'claude.ai', subscriptionType: 'max' })}\n`);
+  process.exit(0);
+}
+const log = process.env.FAKE_LOG;
+const record = (entry) => appendFileSync(log, `${JSON.stringify(entry)}\n`);
+const starts = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter((line) => line.includes('"start"')).length : 0;
+record({ start: args });
+const emit = (event) => process.stdout.write(`${JSON.stringify(event)}\n`);
+emit({ type: 'system', subtype: 'init', session_id: `00000000-0000-4000-8000-00000000000${starts + 1}`, model: 'claude-fake', apiKeySource: 'none' });
+const tokens = starts === 0 ? 1500 : 100;
+
+createInterface({ input: process.stdin }).on('line', (line) => {
+  const text = JSON.parse(line).message.content;
+  record({ message: text });
+  const reply = text === 'CHECKPOINT' ? process.env.FAKE_CHECKPOINT_REPLY || 'CHECKPOINT SAVED' : `ok: ${text}`;
+  emit({
+    type: 'assistant', parent_tool_use_id: null,
+    message: { id: `m${Date.now()}`, content: [{ type: 'text', text: reply }], usage: { input_tokens: 10, cache_read_input_tokens: tokens - 20, cache_creation_input_tokens: 10, output_tokens: 5 } },
+  });
+  emit({ type: 'result', subtype: 'success', is_error: false, result: reply, total_cost_usd: 0.5 });
+});

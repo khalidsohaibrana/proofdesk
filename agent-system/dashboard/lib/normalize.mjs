@@ -11,7 +11,7 @@ const ASYNC_LAUNCH = /^async agent launched/i;
 export function initialState() {
   return {
     session: { id: null, model: null, status: 'idle', detail: '', startedAt: null, error: null },
-    usage: { costUsd: 0, baseCostUsd: 0, turns: 0, rateLimit: null },
+    usage: { costUsd: 0, baseCostUsd: 0, turns: 0, rateLimit: null, contextTokens: 0, rotations: 0 },
     messages: [],
     agents: {},
     activity: [],
@@ -81,9 +81,17 @@ function addSupervisorText(state, messageId, text, at) {
   return { ...next, messages: [...state.messages, message] };
 }
 
+/** Size of the context a main-thread message was sent with. Subagent messages have their own context. */
+export function contextTokensOf(event) {
+  const usage = event.message?.usage;
+  if (event.parent_tool_use_id || !usage) return null;
+  return (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+}
+
 function onAssistant(state, event, at) {
   const owner = resolveId(state, event.parent_tool_use_id) ?? SUPERVISOR;
-  let next = state;
+  const tokens = contextTokensOf(event);
+  let next = tokens === null ? state : { ...state, usage: { ...state.usage, contextTokens: tokens } };
   for (const block of event.message?.content ?? []) {
     if (block.type === 'text' && block.text?.trim()) {
       next = owner === SUPERVISOR
@@ -275,4 +283,25 @@ export function stopAll(state, reason, at = new Date().toISOString()) {
     session: { ...state.session, status: 'idle' },
     usage: { ...state.usage, baseCostUsd: state.usage.costUsd },
   }, { at, agentId: SUPERVISOR, agent: SUPERVISOR, kind: 'error', text: reason });
+}
+
+/** Sage is saving a checkpoint: show it as working. */
+export function beginCheckpoint(state) {
+  return { ...state, session: { ...state.session, status: 'running', error: null } };
+}
+
+/** The checkpoint could not be saved: keep the session and tell the human. */
+export function failCheckpoint(state, message, at = new Date().toISOString()) {
+  return withActivity({ ...state, session: { ...state.session, status: 'idle', error: message } },
+    { at, agentId: SUPERVISOR, agent: SUPERVISOR, kind: 'error', text: clip(message) });
+}
+
+/** A rotation finished: the next message starts a fresh session. Cost carries over, context restarts. */
+export function rotateSession(state, at = new Date().toISOString()) {
+  const tokens = state.usage.contextTokens;
+  return withActivity({
+    ...state,
+    session: { ...state.session, id: null, status: 'idle', error: null, detail: '' },
+    usage: { ...state.usage, baseCostUsd: state.usage.costUsd, contextTokens: 0, rotations: (state.usage.rotations ?? 0) + 1 },
+  }, { at, agentId: SUPERVISOR, agent: SUPERVISOR, kind: 'done', text: `Fresh session (context was ${tokens} tokens)` });
 }
