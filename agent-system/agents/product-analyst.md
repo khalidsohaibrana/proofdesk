@@ -1,7 +1,7 @@
 ---
 name: product-analyst
 description: Discovery-phase requirements analyst. Turns approved product docs into a traceable SRS, acceptance criteria and edge cases, and flags gaps or contradictions as questions. Never adds scope. Writes only to product/ docs. Use for SRS work and for refining tickets' acceptance criteria.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Write, Edit, WebSearch
 ---
 

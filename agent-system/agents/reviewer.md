@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Independent code reviewer for one PR, checked against its ticket. Runs in a separate session from the builder and never edits code. Returns APPROVE or REQUEST CHANGES with evidence. Use for every PR at gate G2.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
