@@ -1,0 +1,15 @@
+{
+  "name": "agent-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/",
+    "check": "node --check server.mjs && node --check lib/normalize.mjs && node --check lib/session.mjs && node --check lib/board.mjs && node --check public/app.js",
+    "probe": "node scripts/probe.mjs"
+  }
+}

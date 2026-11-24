@@ -1,4 +1,5 @@
 {
+  "projectName": "ProofDesk",
   "profile": "docs/delivery/project-profile.md",
   "docsOnlyPaths": [
     "product/",

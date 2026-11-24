@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Agent Command</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="brand">
+          <span class="brand-symbol" id="brand-symbol">A</span
+          ><span><span id="brand-name">PROJECT</span><small>AGENT COMMAND</small></span>
+        </div>
+        <nav aria-label="Sections">
+          <a href="#overview" class="active">◈ <span>Overview</span></a
+          ><a href="#agents">⬡ <span>Agents</span></a
+          ><a href="#board">▤ <span>Board</span></a
+          ><a href="#supervisor">✳ <span>Supervisor</span></a
+          ><a href="#activity">◷ <span>Activity</span></a>
+        </nav>
+        <div class="rail-bottom">
+          <span class="status-light"></span> LOCAL CONTROL
+          <small id="runtime">Claude Code</small>
+        </div>
+      </aside>
+      <main>
+        <header class="topbar">
+          <div class="location"><span id="location-name">PROJECT</span> <span>/</span> OPERATIONS</div>
+          <div class="top-right">
+            <span id="clock"></span
+            ><span class="connection" id="connection"><i></i> <b>CONNECTING</b></span>
+          </div>
+        </header>
+        <section class="hero" id="overview">
+          <div>
+            <div class="section-kicker"><span class="pulse"></span> CURRENT GATE</div>
+            <h1>Agent command center<span class="accent">.</span></h1>
+            <p id="gate">Reading delivery status…</p>
+          </div>
+          <div class="hero-actions">
+            <button id="stop" class="danger" hidden>■ Stop supervisor</button>
+            <button id="reset" class="ghost">New session</button>
+          </div>
+        </section>
+        <section class="stats" aria-label="Summary">
+          <div class="stat"><span>AGENTS RUNNING</span><strong id="running-count">0</strong><small id="running-note">supervisor idle</small></div>
+          <div class="stat"><span>DISPATCHED</span><strong id="dispatch-count">0</strong><small>agents this session</small></div>
+          <div class="stat"><span>IN REVIEW / QA</span><strong id="checking-count">0</strong><small>open pull requests</small></div>
+          <div class="stat"><span>EST. API COST</span><strong id="cost">$0.00</strong><small id="turns">0 turns · subscription-billed</small></div>
+        </section>
+        <div class="layout">
+          <div class="main-column">
+            <section class="panel" id="agents" aria-labelledby="agents-title">
+              <div class="panel-title">
+                <div><div class="section-kicker">LIVE EXECUTION</div><h2 id="agents-title">Agent fleet</h2></div>
+                <span class="meta" id="agent-meta">0 running</span>
+              </div>
+              <div id="agent-list" class="agent-grid"></div>
+            </section>
+            <section class="panel workflow-panel" id="board" aria-labelledby="board-title">
+              <div class="panel-title">
+                <div><div class="section-kicker">DELIVERY PIPELINE · GITHUB</div><h2 id="board-title">Board</h2></div>
+                <button class="ghost" id="refresh-board">↻ Refresh</button>
+              </div>
+              <div class="pipeline" id="pipeline"></div>
+              <div class="ticket-list" id="ticket-list"></div>
+              <p class="meta board-meta" id="board-meta"></p>
+            </section>
+          </div>
+          <div class="side-column">
+            <section class="panel supervisor-panel" id="supervisor" aria-labelledby="supervisor-title">
+              <div class="panel-title">
+                <div><div class="section-kicker">PRIMARY INTERFACE</div><h2 id="supervisor-title">Supervisor</h2></div>
+                <span class="avatar">S</span>
+              </div>
+              <p class="supervisor-desc" id="supervisor-detail">Plans work, dispatches agents, and checks delivery gates.</p>
+              <div class="messages" id="messages" aria-live="polite"></div>
+              <form id="chat-form" class="chat-form">
+                <label class="sr" for="chat-input">Message the supervisor</label
+                ><textarea id="chat-input" rows="2" placeholder="Ask the supervisor… (Enter to send, Shift+Enter for a new line)" required></textarea
+                ><button class="primary" type="submit">Send ↗</button>
+              </form>
+            </section>
+            <section class="panel activity-panel" id="activity" aria-labelledby="activity-title">
+              <div class="panel-title">
+                <div><div class="section-kicker">SYSTEM EVENTS</div><h2 id="activity-title">Activity</h2></div>
+                <button class="ghost" id="activity-filter" hidden>Show all</button>
+              </div>
+              <div id="events" class="events"></div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+    <dialog id="detail-dialog" aria-labelledby="detail-title">
+      <div class="dialog-head">
+        <div><div class="section-kicker" id="detail-id"></div><h2 id="detail-title"></h2></div>
+        <button type="button" class="close" id="close-detail" aria-label="Close">×</button>
+      </div>
+      <div id="detail-body"></div>
+    </dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

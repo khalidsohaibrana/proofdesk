@@ -749,3 +749,95 @@ dialog .primary {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Claude agent dashboard additions ---- */
+:root {
+  --role-supervisor: #39c4bf;
+  --role-builder: #6aa8ff;
+  --role-reviewer: #f0b45a;
+  --role-security: #f2786b;
+  --role-qa: #65d9b1;
+  --role-other: #b296f5;
+  --ok: #65d9b1;
+  --bad: #f2786b;
+  --wait: #f0b45a;
+  --muted: #6c8694;
+  --focus: #9be7e3;
+  --duration-fast: 150ms;
+}
+.role-supervisor { --role: var(--role-supervisor); }
+.role-builder { --role: var(--role-builder); }
+.role-reviewer { --role: var(--role-reviewer); }
+.role-security { --role: var(--role-security); }
+.role-qa { --role: var(--role-qa); }
+.role-other { --role: var(--role-other); }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+button.agent-card {
+  font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+  border-left: 3px solid var(--role, #29404c);
+  transition: transform var(--duration-fast) ease, border-color var(--duration-fast) ease;
+}
+button.agent-card:hover { transform: translateY(-2px); border-color: var(--role); }
+.agent-card.selected { box-shadow: 0 0 0 1px var(--role) inset; }
+.agent-card .agent-icon { border-color: var(--role); color: var(--role); }
+.agent-card.status-idle, .agent-card.status-completed { opacity: 0.78; }
+.agent-card.status-running { background: #12262f; }
+.agent-role { text-transform: capitalize; }
+.agent-meta { margin-top: 8px; color: var(--muted); font: 10px "IBM Plex Mono"; overflow-wrap: anywhere; }
+.fleet-empty { grid-column: 1 / -1; }
+
+.badge { font: 10px "IBM Plex Mono"; color: var(--muted); }
+.badge-running { color: var(--ok); animation: blink 1.6s ease-in-out infinite; }
+.badge-waiting { color: var(--wait); }
+.badge-completed { color: var(--role-supervisor); }
+.badge-failed, .badge-stopped, .badge-killed { color: var(--bad); }
+@keyframes blink { 50% { opacity: 0.45; } }
+
+.hero-actions { display: flex; gap: 8px; }
+.danger {
+  border: 1px solid var(--bad); background: transparent; color: var(--bad);
+  border-radius: 5px; font-size: 12px; font-weight: 700; padding: 11px 16px;
+}
+.danger:hover { background: rgba(242, 120, 107, 0.12); }
+
+.connection.live i { background: var(--ok); }
+.connection.down i { background: var(--bad); }
+.connection b { font-weight: inherit; }
+
+.message .message-text { white-space: pre-wrap; }
+.message.asks { border-color: var(--wait); box-shadow: 0 0 0 1px rgba(240, 180, 90, 0.35); }
+.message.asks small { color: var(--wait); }
+.message.typing { color: var(--muted); font-style: italic; }
+.message.error { border-color: var(--bad); color: #f4b3a9; }
+
+.event:before { background: var(--role, #4fbdbd); }
+.event { flex-direction: column; gap: 3px; padding-left: 14px; position: relative; }
+.event:before { position: absolute; left: 0; top: 13px; margin: 0; }
+.event-head { display: flex; gap: 8px; align-items: baseline; }
+.event-agent { color: var(--role); font: 10px "IBM Plex Mono"; text-transform: uppercase; }
+.event-kind { color: var(--muted); font: 9px "IBM Plex Mono"; letter-spacing: 0.04em; }
+.event-head small { margin-left: auto; }
+.event-text { overflow-wrap: anywhere; }
+.event.kind-denied .event-kind, .event.kind-error .event-kind { color: var(--bad); }
+.event.kind-denied .event-text { color: #f4b3a9; }
+.event.kind-done .event-kind { color: var(--ok); }
+.event.kind-dispatch .event-kind { color: var(--wait); }
+
+a.ticket { display: block; color: inherit; text-decoration: none; }
+.pill-ok { color: var(--ok); border-color: #2f6b58; background: #143229; }
+.pill-bad { color: var(--bad); border-color: #6b3530; background: #33191a; }
+.stage-human strong { color: var(--wait); }
+.board-meta { padding: 0 18px 16px; margin: 0; }
+
+dialog .events { max-height: 320px; overflow: auto; }
+dialog details { margin: 12px 0; }
+dialog summary { cursor: pointer; font: 10px "IBM Plex Mono"; color: #5fc5c2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-running { animation: none; }
+  button.agent-card { transition: none; }
+  button.agent-card:hover { transform: none; }
+}
+.agent-meta { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
