@@ -47,6 +47,7 @@ lib/board.mjs      gh issues + PRs + first-line verdict comments (REVIEW:/SECURI
 - **One supervisor process** stays alive across messages; after a restart it resumes the same session (`--resume`).
 - **Agents** appear when the supervisor dispatches them (`Agent` tool) and update from `task_started` / `task_progress` / `task_notification` events. Click a card for the brief, the result and its tool calls.
 - **Permissions:** headless runs can't show prompts. Tools outside the allow list are refused and show as **BLOCKED** in the activity feed. The project deny list and guard hook still apply. `AskUserQuestion` is disabled, so the supervisor asks in plain text; replies starting with `QUESTION:` are highlighted as *waiting on you*.
+- **Quick replies:** when Sage needs a decision it ends with a `decision` block (see the supervisor profile); the dashboard shows the answers as buttons above the composer, recommended first. Quoted suggested replies also become buttons.
 - **Stop** ends the supervisor process and every agent it is running. **New session** clears the dashboard and starts a fresh conversation.
 - **Billing: plan only.** Every agent runs inside the one `claude` CLI process, using its claude.ai sign-in. The dashboard:
   1. refuses to start the supervisor unless `claude auth status` shows `authMethod: "claude.ai"` (a Console/API login is rejected);

@@ -96,3 +96,30 @@ test('a resumed builder (SendMessage) stays one teammate with two rounds; shell 
   const followup = state.activity.find((e) => e.kind === 'followup');
   assert.equal(followup?.targetAgentId, agents[0].id);
 });
+
+test('an agent the CLI launches asynchronously stays running until its notification', () => {
+  const dispatch = { type: 'assistant', parent_tool_use_id: null, message: { id: 'm', content: [{ type: 'tool_use', id: 'n1', name: 'Agent', input: { subagent_type: 'product-analyst', description: 'Draft SRS' } }] } };
+  const launched = { type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'n1', content: [{ type: 'text', text: 'Async agent launched successfully. (This tool result is internal metadata.)' }] }] } };
+  const started = { type: 'system', subtype: 'task_started', task_id: 'tk1', tool_use_id: 'n1', task_type: 'local_agent', subagent_type: 'product-analyst' };
+  const progress = { type: 'system', subtype: 'task_progress', task_id: 'tk1', tool_use_id: 'n1', description: 'Reading product docs' };
+  const notified = { type: 'system', subtype: 'task_notification', task_id: 'tk1', tool_use_id: 'n1', status: 'completed', summary: 'SRS drafted' };
+  let state = [dispatch, started, launched].reduce((s, e) => reduce(s, e), initialState());
+  assert.equal(state.agents.n1.status, 'running');
+  assert.equal(state.agents.n1.background, true);
+  assert.equal(state.agents.n1.summary, '', 'launch metadata is not the result');
+  state = reduce(state, progress);
+  assert.equal(state.agents.n1.status, 'running');
+  state = reduce(state, notified);
+  assert.equal(state.agents.n1.status, 'completed');
+  assert.equal(state.agents.n1.summary, 'SRS drafted');
+});
+
+test('progress revives an agent that was wrongly marked done, but not one that really finished', () => {
+  const base = reduce(initialState(), { type: 'assistant', parent_tool_use_id: null, message: { id: 'm', content: [{ type: 'tool_use', id: 'a1', name: 'Agent', input: { subagent_type: 'qa' } }] } });
+  const wrong = { ...base, agents: { a1: { ...base.agents.a1, status: 'completed', taskId: 't1' } } };
+  const revived = reduce(wrong, { type: 'system', subtype: 'task_progress', task_id: 't1', tool_use_id: 'a1', description: 'Running tests' });
+  assert.equal(revived.agents.a1.status, 'running');
+  const finished = reduce(revived, { type: 'system', subtype: 'task_notification', task_id: 't1', tool_use_id: 'a1', status: 'completed', summary: 'ok' });
+  const late = reduce(finished, { type: 'system', subtype: 'task_progress', task_id: 't1', tool_use_id: 'a1', description: 'late event' });
+  assert.equal(late.agents.a1.status, 'completed');
+});

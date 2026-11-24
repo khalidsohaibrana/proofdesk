@@ -306,6 +306,23 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .pill-btn .count.full { background: var(--bad); }
 .pill-btn .count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; }
 @media (max-width: 760px) { .now-strip { width: calc(100% - 24px); } }
+/* quick replies */
+.quick-replies { max-width: var(--chat-width); width: calc(100% - 48px); margin: 0 auto 8px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--wait); background: var(--wait-soft); display: flex; flex-direction: column; gap: 10px; }
+.qr-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.qr-kicker { font-size: 12px; font-weight: 600; color: var(--wait); text-transform: uppercase; letter-spacing: 0.04em; }
+.qr-q { font-size: 14px; font-weight: 500; color: var(--text); }
+.qr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.qr { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: border-color var(--duration-fast), transform var(--duration-fast) var(--ease-out), background var(--duration-fast); }
+.qr:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.qr-rec { background: var(--accent); border-color: var(--accent); color: #fff; }
+.qr-rec:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+.qr-star { font-size: 12px; }
+.qr-other { background: transparent; color: var(--text-2); }
+.choices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.choices-q { font-size: 12.5px; color: var(--text-3); margin-right: 4px; }
+.choice { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.choice.rec { background: var(--accent-soft); color: var(--accent-strong); font-weight: 500; }
+@media (max-width: 760px) { .quick-replies { width: calc(100% - 24px); } }
 .working { display: flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 14px; }
 .spark { color: var(--accent); font-size: 18px; display: inline-block; animation: spin 2.4s linear infinite; }
 .spinner { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.2s ease-in-out infinite; }
