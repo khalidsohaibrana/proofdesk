@@ -3,10 +3,12 @@ import { parseDecision } from './decision.js';
 import { renderPane } from './pane.js';
 import { CORE_TEAM, assignPersonas, persona } from './team.js';
 import { renderTimeline } from './timeline.js';
+import { SpeechQueue, createPlayer, initialMemory, planSpeech } from './voice.js';
 import { asksHuman, avatar, elapsed, h, humanize, relPath, setClock, statusOf } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
 const THEME_KEY = 'agent-dashboard-theme';
+const VOICE_KEY = 'agent-dashboard-voice';
 const MAX_INPUT_HEIGHT = 220;
 const NARROW = window.matchMedia('(max-width: 1100px)');
 
@@ -49,6 +51,38 @@ async function post(path, body = {}) {
   const value = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(value.error || `Request failed (${response.status})`);
   return value;
+}
+
+// ---- Sage's voice: off by default, speaks only new live events ---------------------------------
+const voice = { on: false, memory: initialMemory() };
+const player = createPlayer({
+  onMode: (mode) => { $('voice-mode').hidden = false; $('voice-mode').textContent = `voice: ${mode}`; },
+  onPreparing: (preparing) => { if (preparing) { $('voice-mode').hidden = false; $('voice-mode').textContent = 'Preparing voice…'; } },
+});
+const speech = new SpeechQueue(async (line) => {
+  renderVoice();
+  try { await player.play(line); } finally { setTimeout(renderVoice, 0); }
+}, () => player.cancel());
+
+function renderVoice() {
+  $('voice').setAttribute('aria-checked', String(voice.on));
+  $('voice').textContent = `🔊 Voice: ${voice.on ? 'on' : 'off'}`;
+  $('voice-stop').hidden = !voice.on || speech.size === 0;
+  if (!voice.on) $('voice-mode').hidden = true;
+}
+
+function updateVoice() {
+  const planned = planSpeech(voice.memory, snapshot, voice.on && !snapshot.replay);
+  voice.memory = planned.memory;
+  if (planned.lines.length) speech.push(...planned.lines);
+  renderVoice();
+}
+
+function setVoice(on) {
+  voice.on = on;
+  if (!on) speech.stop();
+  try { localStorage.setItem(VOICE_KEY, on ? 'on' : 'off'); } catch { /* storage unavailable: voice resets on reload */ }
+  renderVoice();
 }
 
 // ---- team roster in the sidebar ----------------------------------------------------------
@@ -210,6 +244,7 @@ function render() {
   personas = assignPersonas(Object.values(snapshot.agents));
   const chat = $('chat');
   const pinned = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 80;
+  updateVoice();
   renderChrome();
   renderTeam();
   renderLive();
@@ -306,6 +341,8 @@ $('reset').addEventListener('click', () => {
     post('/api/reset').then(() => { view.selectedAgent = null; toast('New session ready'); }).catch((error) => toast(error.message));
   }
 });
+$('voice').addEventListener('click', () => setVoice(!voice.on));
+$('voice-stop').addEventListener('click', () => { speech.stop(); renderVoice(); });
 $('toggle-pane').addEventListener('click', () => { view.paneOpen = !view.paneOpen; render(); });
 $('close-pane').addEventListener('click', () => { view.paneOpen = false; render(); });
 $('gate-card').addEventListener('click', () => { view.tab = 'board'; view.selectedAgent = null; view.paneOpen = true; $('shell').classList.remove('sidebar-open'); render(); });
@@ -335,6 +372,8 @@ for (const type of ['pointerup', 'pointercancel']) {
   }, true);
 }
 
+// The toggle is remembered, but nothing speaks until a new live event arrives after this page loads.
+try { voice.on = localStorage.getItem(VOICE_KEY) === 'on'; } catch { /* storage unavailable: voice stays off */ }
 try { applyTheme(localStorage.getItem(THEME_KEY)); } catch { /* storage unavailable: follow the system theme */ }
 setInterval(() => { if (snapshot && Object.values(snapshot.agents).some((agent) => agent.status === 'running')) render(); }, 1000);
 connect();

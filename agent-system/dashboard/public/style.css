@@ -455,3 +455,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Sage voice */
+.voice { display: inline-flex; align-items: center; gap: 6px; }
+.voice-mode { font-size: 12px; color: var(--text-3); }
+#voice[aria-checked="true"] { background: var(--surface-2); border-color: var(--accent); }
+.say-caption { display: flex; gap: 6px; align-items: baseline; margin: 2px 0 8px; font-size: 13px; font-style: italic; color: var(--text-2); }
+.say-icon { font-style: normal; font-size: 12px; }

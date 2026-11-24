@@ -54,6 +54,11 @@
           </div>
           <div class="topbar-actions">
             <span class="replay-badge" id="replay" hidden></span>
+            <span class="voice" id="voice-box">
+              <span class="voice-mode" id="voice-mode" hidden></span>
+              <button class="pill-btn" id="voice-stop" type="button" hidden aria-label="Stop speaking">■ Stop</button>
+              <button class="pill-btn" id="voice" type="button" role="switch" aria-checked="false" title="Sage speaks new updates aloud">🔊 Voice: off</button>
+            </span>
             <span class="meter" id="meter" hidden title="Sage's context size against the budget. A fresh session starts when it is reached.">
               <span class="meter-bar"><span class="meter-fill" id="meter-fill"></span></span>
               <span class="meter-text" id="meter-text"></span>

@@ -2,6 +2,7 @@
 // inline delegation cards for every teammate Sage assigns, in the order they happened.
 import { parseDecision, stripDecision } from './decision.js';
 import { renderMarkdown } from './markdown.js';
+import { extractSay, stripSay } from './say.js';
 import { persona } from './team.js';
 import { asksHuman, avatar, elapsed, enterClass, h, humanize, relPath, statusOf } from './ui.js';
 
@@ -69,13 +70,15 @@ function messageView(message, root) {
   const decision = parseDecision(message.text);
   const asks = asksHuman(message.text) || Boolean(decision);
   const prose = h('div', { class: 'prose' });
-  prose.append(renderMarkdown(relPath(stripDecision(message.text), root)));
+  prose.append(renderMarkdown(relPath(stripSay(stripDecision(message.text)), root)));
+  const say = extractSay(message.text);
   const choices = decision && h('div', { class: 'choices', 'aria-label': 'Options Sage offered' },
     decision.question && h('span', { class: 'choices-q' }, decision.question),
     decision.options.map((option) => h('span', { class: `choice${option.recommended ? ' rec' : ''}` }, option.recommended ? `★ ${option.label}` : option.label)));
   return h('div', { class: `msg msg-agent${asks ? ' asks' : ''}` },
     h('div', { class: 'msg-head' }, avatar(SAGE, 'avatar-sm'), h('span', { class: 'msg-name' }, SAGE.name),
       asks && h('span', { class: 'chip chip-wait' }, 'Waiting on you')),
+    say && h('p', { class: 'say-caption' }, h('span', { class: 'say-icon', 'aria-hidden': 'true' }, '🔊'), say),
     prose, choices);
 }
 

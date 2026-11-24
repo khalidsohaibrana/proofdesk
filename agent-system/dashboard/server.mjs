@@ -10,6 +10,7 @@ import { SupervisorSession, checkPlanAuth } from './lib/session.mjs';
 import { loadBoard } from './lib/board.mjs';
 import { RunRecorder } from './lib/recorder.mjs';
 import { ReplayPlayer, loadRun } from './lib/replay.mjs';
+import { createTts, loadKokoro } from './lib/tts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT = resolve(process.env.PROJECT_DIR || join(HERE, '..', '..'));
@@ -34,6 +35,8 @@ const ASSETS = {
   '/pane.js': ['pane.js', 'text/javascript'],
   '/ui.js': ['ui.js', 'text/javascript'],
   '/decision.js': ['decision.js', 'text/javascript'],
+  '/say.js': ['say.js', 'text/javascript'],
+  '/voice.js': ['voice.js', 'text/javascript'],
 };
 
 async function loadConfig() {
@@ -71,6 +74,8 @@ const session = new SupervisorSession({
 });
 
 const CONTEXT_BUDGET = contextBudget();
+// SAGE_TTS_ENGINE_MODULE points at a module whose default export loads a stand-in engine (tests).
+const tts = createTts({ load: process.env.SAGE_TTS_ENGINE_MODULE ? (await import(process.env.SAGE_TTS_ENGINE_MODULE)).default : loadKokoro });
 
 // Billing guard: agents only run on the signed-in Claude subscription, never an API key.
 let billing = { ok: false, plan: null, reason: 'Checking Claude sign-in…', checkedAt: null };
@@ -204,6 +209,18 @@ const routes = {
     const fresh = !session.running && !state.session.id;
     session.send(withStartupPrefix(text.slice(0, MAX_MESSAGE), fresh), state.session.id);
     return send(res, 202, { accepted: true });
+  },
+  'POST /api/tts': async (req, res) => {
+    const text = (await readBody(req)).text;
+    let wav;
+    try {
+      wav = await tts.synthesize(text);
+    } catch (error) {
+      process.stderr.write(`[dashboard] voice: ${error.message}\n`);
+      return send(res, error.status || 502, { error: error.status ? error.message : 'Voice engine failed' });
+    }
+    res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': wav.length, 'Cache-Control': 'no-store' });
+    return res.end(wav);
   },
   'POST /api/stop': (req, res) => send(res, session.stop() ? 202 : 409, session.running ? { stopping: true } : { error: 'Supervisor is not running' }),
   'POST /api/reset': async (req, res) => {
