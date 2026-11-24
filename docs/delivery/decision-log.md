@@ -15,3 +15,4 @@ Short entries for decisions and working assumptions that don't warrant a full AD
 | D-009 | 2026-11-21 | Decision | ADR-0002 accepted with amendment: boilerplate + app stack accepted; run locally with free tools; hosting deferred to a future ADR | Human | Active |
 | D-010 | 2026-11-21 | Decision | Command deny-list and personal-connector deny rules added (A7, A8) | Human | Active |
 | D-011 | 2026-11-24 | Decision | To cut token cost, the reviewer, product-analyst and ux-designer move from Opus to Sonnet. The supervisor (Sage), solution-architect (ADRs) and security-reviewer stay on Opus. HUMAN APPROVAL RECORDED: "All but Sage", 2026-11-24 | Human | Active |
+| D-012 | 2026-11-24 | Decision | Sage stays on Opus and stays cheap through file memory (`status.md`, `memory.md`, `journal/`), checkpoints and fresh dashboard sessions at a context budget, plus a usage meter. HUMAN APPROVAL RECORDED: "Yes, both parts", 2026-11-24 | Human | Active |
