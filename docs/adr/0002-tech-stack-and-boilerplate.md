@@ -57,7 +57,7 @@ The product owner decided: **use everything free and run locally for now.**
 | Cloud choice (deferred) | Local / free replacement | Note |
 |---|---|---|
 | Neon Postgres | Postgres 17 container (+ PGlite for unit tests, already in the boilerplate) | Same SQL migrations; RLS and triggers work the same |
-| AWS S3 | S3-compatible local server: **MinIO** container | Code uses the AWS SDK S3 client, so switching to S3/R2 later is a config change. MinIO is AGPL, but it runs only as a separate local dev service and is never linked into or shipped with our code. SeaweedFS (Apache-2.0) is the fallback |
+| AWS S3 | S3-compatible local server: **SeaweedFS** container (`chrislusf/seaweedfs:4.55`, Apache-2.0) | Code uses the AWS SDK S3 client, so switching to S3/R2 later is a config change. **Amended 2026-11-24 — see the second amendment below:** MinIO was the original choice and is no longer available; SeaweedFS was this ADR's named fallback and is now the primary |
 | GuardDuty malware scan | **ClamAV** container called from the worker | GPL, also a separate service only. Same `pending_scan → clean/infected` flow |
 | Resend email | **Mailpit** container (catches all email; web inbox at localhost) | React Email templates unchanged; switch to a real provider at hosting time |
 | Vercel + Fly.io | `next dev` / `next start` + the pg-boss worker as a local process | — |
@@ -67,8 +67,32 @@ The product owner decided: **use everything free and run locally for now.**
 **Consequences of the amendment:**
 - Pilot cost while local: **$0**.
 - Real external pilots can't start until hosting is decided. That becomes a new ADR (hosting and vendors, region per open decision B4) before Phase 1A pilot onboarding.
-- Bootstrap (P0-6) must add a `docker-compose.yml` for Postgres, MinIO, ClamAV and Mailpit, plus `.env.example` pointing at them, so every builder worktree runs the same stack.
+- Bootstrap (P0-6) must add a `docker-compose.yml` for Postgres, SeaweedFS, ClamAV and Mailpit, plus `.env.example` pointing at them, so every builder worktree runs the same stack.
 - Code must reach storage, email and scanning through small adapter interfaces, so the hosting ADR only changes configuration.
+
+## Second amendment, accepted 2026-11-24: object storage is SeaweedFS, not MinIO
+
+**Accepted by the product owner on 2026-11-24.** HUMAN APPROVAL RECORDED: "Approve the swap to SeaweedFS and amend ADR-0002 and the SRS", 2026-11-24.
+
+**Why.** MinIO can no longer be used. Verified by the supervisor on 2026-11-24:
+
+- `https://hub.docker.com/v2/repositories/minio/minio/tags` returns **HTTP 404** — the Docker Hub repository is gone.
+- The MinIO community edition stopped publishing container images in **October 2025**, entered maintenance mode in **December 2025** with security fixes evaluated case by case, and the upstream GitHub repository was **archived in April 2026**.
+
+**What replaces it.** SeaweedFS, which this ADR already named as the fallback, is now the primary local object store. Verified on 2026-11-24:
+
+| Check | Result |
+|---|---|
+| Image | `chrislusf/seaweedfs:4.55`, tag `last_updated` 2026-11-23 |
+| Architectures | amd64, arm64, 386, arm/v7, ppc64le, s390x |
+| License | Apache-2.0 (pre-approved) |
+| Upstream | `seaweedfs/seaweedfs` — not archived, last push 2026-11-24, 36.2k stars |
+
+**Scope of this amendment.** Local object storage only. Nothing else in this ADR changes: the application still reaches storage through the AWS SDK S3 client behind an adapter interface, so a later move to S3 or R2 remains a configuration change.
+
+**Known difference, and how it is checked.** SeaweedFS's S3 implementation is not byte-identical to AWS. Presigned **PUT** is the supported upload path and is what the design uses; presigned POST policy has reported problems. P0-6 must ship a throwaway integration test — presign PUT, upload a 50 MB file from a browser, presign GET with `response-content-disposition` — and escalate on failure rather than redesigning around it.
+
+**Consequence for other documents.** SRS `NFR-ENV-1` named MinIO and is amended in the same change. Any agent finding "MinIO" in an older document should treat this amendment as authoritative and must not re-add MinIO on the authority of an Accepted document.
 
 ## Consequences (original proposal)
 - **Week-1 spike before any viewer feature work:** render a real large architecture PDF (A1/A0) on a real iPhone. If pdf.js fails, switch to the EmbedPDF fallback through a new ADR.
