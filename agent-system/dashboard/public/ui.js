@@ -20,9 +20,13 @@ export function h(tag, attrs = {}, ...children) {
 
 export const time = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
+// The server's clock (the virtual clock during a replay), so durations match what happened.
+let clockIso = null;
+export const setClock = (iso) => { clockIso = iso; };
+
 export function elapsed(agent) {
   if (!agent?.startedAt) return '';
-  const end = agent.endedAt ? new Date(agent.endedAt) : new Date();
+  const end = agent.endedAt ? new Date(agent.endedAt) : clockIso ? new Date(clockIso) : new Date();
   const secs = Math.max(0, Math.round((end - new Date(agent.startedAt)) / 1000));
   if (secs < 60) return `${secs}s`;
   const mins = Math.floor(secs / 60);

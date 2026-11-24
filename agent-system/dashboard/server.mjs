@@ -7,12 +7,17 @@ import { fileURLToPath } from 'node:url';
 import { addUserMessage, initialState, reduce, stopAll } from './lib/normalize.mjs';
 import { SupervisorSession, checkPlanAuth } from './lib/session.mjs';
 import { loadBoard } from './lib/board.mjs';
+import { RunRecorder } from './lib/recorder.mjs';
+import { ReplayPlayer, loadRun } from './lib/replay.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT = resolve(process.env.PROJECT_DIR || join(HERE, '..', '..'));
 const PORT = Number(process.env.PORT || 4173);
 const HOST = '127.0.0.1';
 const DATA_FILE = process.env.DASHBOARD_DATA_PATH || join(HERE, 'data', 'state.json');
+const RUNS_DIR = process.env.DASHBOARD_RUNS_DIR || join(HERE, 'data', 'runs');
+// REPLAY=<run file> plays a recorded run instead of driving a live supervisor.
+const REPLAY_FILE = process.env.REPLAY ? resolve(process.env.REPLAY) : null;
 const MAX_BODY = 20_000;
 const MAX_MESSAGE = 8_000;
 const BOARD_POLL_MS = 30_000;
@@ -51,7 +56,9 @@ async function loadState() {
 }
 
 const config = await loadConfig();
-let state = await loadState();
+const player = REPLAY_FILE ? new ReplayPlayer(loadRun(REPLAY_FILE)) : null;
+const recorder = new RunRecorder(RUNS_DIR);
+let state = player ? player.world.state : await loadState();
 let board = { gate: '', tickets: [], pulls: [], error: null, updatedAt: null };
 const clients = new Set();
 const session = new SupervisorSession({
@@ -63,12 +70,16 @@ const session = new SupervisorSession({
 // Billing guard: agents only run on the signed-in Claude subscription, never an API key.
 let billing = { ok: false, plan: null, reason: 'Checking Claude sign-in…', checkedAt: null };
 async function refreshBilling() {
+  if (player) return billing;
   billing = { ...(await checkPlanAuth()), checkedAt: new Date().toISOString() };
+  recorder.write('billing', { billing });
   push();
   return billing;
 }
 
-const snapshot = () => ({ ...state, board, billing, running: session.running, project: { name: config.projectName, path: PROJECT } });
+const snapshot = () => (player
+  ? { ...player.world.state, board: player.world.board, billing: player.world.billing, running: player.world.state.session.status === 'running', now: player.now(), replay: player.info(), project: { name: config.projectName, path: PROJECT } }
+  : { ...state, board, billing, running: session.running, now: new Date().toISOString(), replay: null, project: { name: config.projectName, path: PROJECT } });
 
 let pushTimer = null;
 function push() {
@@ -100,9 +111,13 @@ function setState(next) {
   save();
 }
 
+if (player) player.on('change', push);
+
 async function refreshBoard() {
+  if (player) return;
   try {
     board = await loadBoard(PROJECT, config.statusFile);
+    recorder.write('board', { board });
   } catch (error) {
     board = { ...board, error: error.message, updatedAt: new Date().toISOString() };
   }
@@ -114,10 +129,12 @@ session.on('event', (event) => {
     session.stop();
     billing = { ...billing, ok: false, reason: `Stopped: the CLI used an API key (${event.apiKeySource}) instead of your subscription.` };
   }
+  recorder.write('event', { event });
   setState(reduce(state, event));
   if (event.type === 'result' || event.subtype === 'task_notification') refreshBoard();
 });
 session.on('exit', ({ reason, expected }) => {
+  recorder.write('exit', { reason });
   setState(stopAll(state, reason));
   if (!expected) process.stderr.write(`[dashboard] ${reason}\n`);
 });
@@ -161,7 +178,14 @@ const routes = {
   'POST /api/message': async (req, res) => {
     const text = String((await readBody(req)).text ?? '').trim();
     if (!text) return send(res, 400, { error: 'Message required' });
+    if (player) return send(res, 409, { error: 'This is a replay of a recorded run' });
     if (!session.running && !(await refreshBilling()).ok) return send(res, 412, { error: billing.reason });
+    if (!recorder.active) {
+      recorder.start();
+      recorder.write('billing', { billing });
+      recorder.write('board', { board });
+    }
+    recorder.write('human', { text: text.slice(0, MAX_MESSAGE) });
     setState(addUserMessage(state, text.slice(0, MAX_MESSAGE)));
     session.send(text.slice(0, MAX_MESSAGE), state.session.id);
     return send(res, 202, { accepted: true });
@@ -169,9 +193,22 @@ const routes = {
   'POST /api/stop': (req, res) => send(res, session.stop() ? 202 : 409, session.running ? { stopping: true } : { error: 'Supervisor is not running' }),
   'POST /api/reset': (req, res) => {
     if (session.running) return send(res, 409, { error: 'Stop the supervisor before starting a new session' });
+    if (player) return send(res, 409, { error: 'This is a replay of a recorded run' });
+    recorder.end();
     setState(initialState());
     return send(res, 200, { reset: true });
   },
+  // Replay director: {action: 'play'|'pause'|'seek', speed?, to?} (ms from the start of the run).
+  'POST /api/replay': async (req, res) => {
+    if (!player) return send(res, 409, { error: 'Not in replay mode' });
+    const { action, speed, to } = await readBody(req);
+    if (action === 'seek') player.seek(Number(to) || 0);
+    else if (action === 'play') player.play(speed);
+    else if (action === 'pause') player.pause();
+    else return send(res, 400, { error: 'action must be play, pause or seek' });
+    return send(res, 200, player.info());
+  },
+  'GET /api/replay/markers': (req, res) => (player ? send(res, 200, player.markers()) : send(res, 409, { error: 'Not in replay mode' })),
   'POST /api/board/refresh': async (req, res) => {
     await refreshBoard();
     return send(res, 200, board);
@@ -193,13 +230,15 @@ const server = createServer(async (req, res) => {
   }
 });
 
-refreshBoard();
-refreshBilling();
-setInterval(refreshBoard, BOARD_POLL_MS).unref();
+if (!player) {
+  refreshBoard();
+  refreshBilling();
+}
+if (!player) setInterval(refreshBoard, BOARD_POLL_MS).unref();
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     session.stop();
     process.exit(0);
   });
 }
-server.listen(PORT, HOST, () => process.stdout.write(`Agent dashboard: http://${HOST}:${PORT}  (project: ${PROJECT})\n`));
+server.listen(PORT, HOST, () => process.stdout.write(`Agent dashboard: http://${HOST}:${PORT}  (project: ${PROJECT})${player ? `  REPLAY ${REPLAY_FILE}` : ''}\n`));

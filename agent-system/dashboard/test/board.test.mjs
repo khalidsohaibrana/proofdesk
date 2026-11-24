@@ -32,3 +32,8 @@ test('gateFrom reads the line under Current gate', () => {
   assert.equal(gateFrom(md), 'Phase 0, Foundation (G0 not passed). No feature code.');
   assert.equal(gateFrom('# nothing here'), '');
 });
+
+test('verdictsFrom records the review round', () => {
+  const verdicts = verdictsFrom([comment('REVIEW: REQUEST CHANGES — round 1'), comment('REVIEW: APPROVE — round 2')]);
+  assert.equal(verdicts.review.round, 2);
+});

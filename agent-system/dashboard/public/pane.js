@@ -34,7 +34,8 @@ function activityView(snapshot, personas) {
 function verdictChips(verdicts = {}) {
   return ['review', 'security', 'qa'].filter((key) => verdicts[key]).map((key) => {
     const ok = ['APPROVE', 'PASS'].includes(verdicts[key].result);
-    return h('span', { class: `chip ${ok ? 'chip-done' : 'chip-bad'}` }, `${key}: ${verdicts[key].result.toLowerCase()}`);
+    const round = verdicts[key].round ? ` · round ${verdicts[key].round}/3` : '';
+    return h('span', { class: `chip ${ok ? 'chip-done' : 'chip-bad'}` }, `${key}: ${verdicts[key].result.toLowerCase()}${round}`);
   });
 }
 

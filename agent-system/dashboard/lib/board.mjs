@@ -15,12 +15,16 @@ function gh(args, cwd) {
   });
 }
 
+const firstLine = (body) => String(body ?? '').trim().split('\n')[0];
+
 /** Latest verdict per kind, read from the first line of PR comments. */
 export function verdictsFrom(comments = []) {
   const latest = {};
   for (const comment of comments) {
-    const match = VERDICT.exec(String(comment.body ?? '').trim().split('\n')[0]);
-    if (match) latest[match[1].toLowerCase()] = { result: match[2].trim(), at: comment.createdAt };
+    const match = VERDICT.exec(firstLine(comment.body));
+    if (!match) continue;
+    const round = /round\s+(\d+)/i.exec(firstLine(comment.body));
+    latest[match[1].toLowerCase()] = { result: match[2].trim(), at: comment.createdAt, round: round ? Number(round[1]) : null };
   }
   return latest;
 }

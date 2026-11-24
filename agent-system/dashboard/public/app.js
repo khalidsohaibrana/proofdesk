@@ -2,7 +2,7 @@
 import { renderPane } from './pane.js';
 import { CORE_TEAM, assignPersonas, persona } from './team.js';
 import { renderTimeline } from './timeline.js';
-import { avatar, h, relPath, statusOf } from './ui.js';
+import { avatar, h, relPath, setClock, statusOf } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
 const THEME_KEY = 'agent-dashboard-theme';
@@ -85,7 +85,8 @@ function renderChrome() {
   $('sage-status').textContent = working ? `Working${busy ? ` · ${busy} teammate${busy > 1 ? 's' : ''} on it` : ''}` : busy ? `${busy} teammate${busy > 1 ? 's' : ''} working` : snapshot.running ? 'Waiting for you' : 'Idle';
   $('sage-status').className = `who-status ${working || busy ? 'live' : ''}`;
   $('usage').textContent = usage.costUsd ? `≈ $${usage.costUsd.toFixed(2)} API-equivalent · on plan` : '';
-  $('stop').hidden = !(snapshot.running && (working || busy));
+  $('stop').hidden = Boolean(snapshot.replay) || !(snapshot.running && (working || busy));
+  renderReplay(snapshot.replay);
   $('send').disabled = !billing.ok && !snapshot.running;
   $('reset').disabled = snapshot.running;
 }
@@ -112,6 +113,7 @@ function render() {
   if (!snapshot) return;
   if (pointerDown) { renderPending = true; return; }
   renderPending = false;
+  setClock(snapshot.now);
   personas = assignPersonas(Object.values(snapshot.agents));
   const chat = $('chat');
   const pinned = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 80;
@@ -125,6 +127,24 @@ function render() {
   renderPaneShell();
   if (pinned) chat.scrollTop = chat.scrollHeight;
 }
+
+// ---- replay badge and controls ----------------------------------------------------------
+const clockText = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+function renderReplay(replay) {
+  $('replay').hidden = !replay;
+  $('input').disabled = Boolean(replay);
+  if (!replay) return;
+  $('input').placeholder = 'Replay of a recorded run';
+  $('replay').textContent = `Replay · real run ${clockText(replay.position)} / ${clockText(replay.duration)}${replay.playing && replay.speed !== 1 ? ` · ×${replay.speed}` : ''}`;
+}
+const REPLAY_SEEK_MS = 15_000;
+document.addEventListener('keydown', (event) => {
+  const replay = snapshot?.replay;
+  if (!replay || event.target === $('input')) return;
+  if (event.key === ' ') { event.preventDefault(); post('/api/replay', { action: replay.playing ? 'pause' : 'play' }).catch((error) => toast(error.message)); }
+  if (event.key === 'ArrowRight') post('/api/replay', { action: 'seek', to: replay.position + REPLAY_SEEK_MS }).catch((error) => toast(error.message));
+  if (event.key === 'ArrowLeft') post('/api/replay', { action: 'seek', to: replay.position - REPLAY_SEEK_MS }).catch((error) => toast(error.message));
+});
 
 // ---- actions ----------------------------------------------------------------------------------
 function openAgent(id) {
