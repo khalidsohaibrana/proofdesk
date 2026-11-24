@@ -1,43 +1,24 @@
-// Dashboard client: renders the live snapshot streamed by the server. Text nodes only (no innerHTML).
-const $ = (id) => document.getElementById(id);
-const node = (tag, className = '', text = '') => {
-  const item = document.createElement(tag);
-  if (className) item.className = className;
-  if (text !== '') item.textContent = text;
-  return item;
-};
+// Dashboard shell: sidebar team, chat with Sage, side pane, composer. Live via Server-Sent Events.
+import { renderPane } from './pane.js';
+import { CORE_TEAM, assignPersonas, persona } from './team.js';
+import { renderTimeline } from './timeline.js';
+import { avatar, h, relPath, statusOf } from './ui.js';
 
-const STAGES = [
-  ['ready', 'Ready'], ['building', 'Building'], ['review', 'Review'],
-  ['qa', 'QA'], ['human', 'Awaiting you'], ['done', 'Done'],
-];
-const ROLE_CLASS = { supervisor: 'role-supervisor', builder: 'role-builder', reviewer: 'role-reviewer', 'security-reviewer': 'role-security', qa: 'role-qa' };
-const STATUS_LABEL = { running: '● RUNNING', completed: '✓ DONE', failed: '✕ FAILED', stopped: '■ STOPPED', killed: '■ STOPPED' };
-const KIND_LABEL = { dispatch: 'DISPATCH', tool: 'TOOL', say: 'SAYS', start: 'START', done: 'DONE', error: 'ERROR', denied: 'BLOCKED' };
-const MAX_EVENTS = 80;
+const $ = (id) => document.getElementById(id);
+const THEME_KEY = 'agent-dashboard-theme';
+const MAX_INPUT_HEIGHT = 220;
+const NARROW = window.matchMedia('(max-width: 1100px)');
 
 let snapshot = null;
-let selectedAgent = null;
-let openAgent = null;
-
-// Show paths relative to the project root so activity stays readable.
-const rel = (text) => (snapshot?.project?.path ? String(text ?? '').split(`${snapshot.project.path}/`).join('').split(snapshot.project.path).join('.') : String(text ?? ''));
-const roleClass = (type) => ROLE_CLASS[type] || 'role-other';
-const initial = (type) => (type === 'security-reviewer' ? '⛨' : (type || '?')[0].toUpperCase());
-const time = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
-const elapsed = (agent) => {
-  if (!agent.startedAt) return '';
-  const end = agent.endedAt ? new Date(agent.endedAt) : new Date();
-  const secs = Math.max(0, Math.round((end - new Date(agent.startedAt)) / 1000));
-  return secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${secs % 60}s`;
-};
+let personas = new Map();
+const view = { tab: 'activity', selectedAgent: null, paneOpen: !NARROW.matches };
 
 function toast(message) {
-  const item = $('toast');
-  item.textContent = message;
-  item.style.display = 'block';
+  const box = $('toast');
+  box.textContent = message;
+  box.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { item.style.display = 'none'; }, 4500);
+  toast.timer = setTimeout(() => box.classList.remove('show'), 4000);
 }
 
 async function post(path, body = {}) {
@@ -47,238 +28,198 @@ async function post(path, body = {}) {
   return value;
 }
 
-const agentsList = () => Object.values(snapshot.agents).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+// ---- team roster in the sidebar ----------------------------------------------------------
+function teamRows() {
+  const agents = Object.values(snapshot.agents).sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+  const sage = snapshot.session.status === 'running' ? 'running' : snapshot.running ? 'waiting' : 'idle';
+  const rows = [{ who: persona('supervisor'), status: sage, line: snapshot.session.detail || (sage === 'running' ? 'Planning and delegating' : 'Ready for you'), id: null }];
+  const types = [...CORE_TEAM.slice(1), ...new Set(agents.map((agent) => agent.type).filter((type) => !CORE_TEAM.includes(type)))];
+  for (const type of types) {
+    const instances = agents.filter((agent) => agent.type === type);
+    if (!instances.length) rows.push({ who: persona(type), status: 'idle', line: 'Not assigned yet', id: null });
+    for (const agent of instances) {
+      rows.push({
+        who: personas.get(agent.id) ?? persona(type),
+        status: agent.status,
+        line: relPath(agent.status === 'running' ? agent.progress || agent.lastTool || agent.description : agent.description, snapshot.project.path),
+        id: agent.id,
+      });
+    }
+  }
+  return rows;
+}
 
-function renderHeader() {
-  const name = snapshot.project.name.toUpperCase();
-  $('brand-name').textContent = name;
-  $('brand-symbol').textContent = name[0] || 'A';
-  $('location-name').textContent = name;
-  document.title = `${snapshot.project.name} · Agent Command`;
-  const { billing } = snapshot;
-  const plan = billing.ok ? `${billing.plan} plan` : 'not on plan';
-  $('runtime').textContent = `Claude Code · ${plan}${snapshot.session.model ? ` · ${snapshot.session.model}` : ''}`;
-  $('runtime').className = billing.ok ? 'billing-ok' : 'billing-bad';
+function renderTeam() {
+  $('team').replaceChildren(...teamRows().map((row) => {
+    const state = statusOf(row.status);
+    return h('li', {},
+      h('button', {
+        class: `member tone-${state.tone}${row.id && row.id === view.selectedAgent ? ' selected' : ''}`,
+        type: 'button',
+        'aria-label': `${row.who.name}, ${row.who.role}: ${state.label}`,
+        on: { click: () => (row.id ? openAgent(row.id) : row.who.type === 'supervisor' ? focusInput() : toast(`${row.who.name} hasn’t been assigned work yet.`)) },
+      },
+      h('span', { class: 'member-avatar' }, avatar(row.who, 'avatar-sm'), h('span', { class: `presence tone-${state.tone}` })),
+      h('span', { class: 'member-text' },
+        h('span', { class: 'member-name' }, row.who.name, h('span', { class: 'member-role' }, row.who.role)),
+        h('span', { class: 'member-line' }, row.status === 'idle' ? row.line : row.status === 'waiting' ? state.label : `${state.label} · ${row.line}`))));
+  }));
+}
+
+// ---- header, sidebar footer, composer -----------------------------------------------------
+function renderChrome() {
+  const { billing, session, board, usage } = snapshot;
+  $('brand-name').textContent = snapshot.project.name;
+  document.title = `${snapshot.project.name} · Agent Team`;
+  $('gate').textContent = board.gate || 'No gate found';
+  const open = [...board.pulls, ...board.tickets].filter((item) => item.stage !== 'done');
+  $('gate-counts').textContent = `${board.tickets.length} open issues · ${board.pulls.filter((pr) => pr.stage !== 'done').length} open PRs${open.some((i) => i.stage === 'human') ? ' · needs you' : ''}`;
+
+  $('plan').className = `plan ${billing.ok ? 'ok' : 'bad'}`;
+  $('plan-text').textContent = billing.ok ? `Claude ${billing.plan} plan${session.model ? ` · ${session.model.replace(/^claude-/, '')}` : ''}` : 'Not on your plan';
   $('billing-banner').hidden = billing.ok || !billing.checkedAt;
   $('billing-banner').textContent = billing.reason ?? '';
-  $('chat-form').querySelector('button').disabled = !billing.ok && !snapshot.running;
-  $('gate').textContent = snapshot.board.gate || 'No gate found in the status file.';
-  $('stop').hidden = !snapshot.running;
+
+  const working = session.status === 'running';
+  const busy = Object.values(snapshot.agents).filter((agent) => agent.status === 'running').length;
+  $('sage-status').textContent = working ? `Working${busy ? ` · ${busy} teammate${busy > 1 ? 's' : ''} on it` : ''}` : busy ? `${busy} teammate${busy > 1 ? 's' : ''} working` : snapshot.running ? 'Waiting for you' : 'Idle';
+  $('sage-status').className = `who-status ${working || busy ? 'live' : ''}`;
+  $('usage').textContent = usage.costUsd ? `≈ $${usage.costUsd.toFixed(2)} API-equivalent · on plan` : '';
+  $('stop').hidden = !(snapshot.running && (working || busy));
+  $('send').disabled = !billing.ok && !snapshot.running;
   $('reset').disabled = snapshot.running;
-
-  const agents = agentsList();
-  const running = agents.filter((a) => a.status === 'running').length;
-  const busy = snapshot.session.status === 'running';
-  $('running-count').textContent = String(running + (busy ? 1 : 0));
-  $('running-note').textContent = busy ? 'supervisor working' : snapshot.running ? 'supervisor waiting' : 'supervisor idle';
-  $('dispatch-count').textContent = String(agents.length);
-  $('checking-count').textContent = String(snapshot.board.pulls.filter((p) => ['review', 'qa'].includes(p.stage)).length);
-  $('cost').textContent = `$${snapshot.usage.costUsd.toFixed(2)}`;
-  $('turns').textContent = billing.ok
-    ? `${snapshot.usage.turns} turns · on your ${billing.plan} plan, not billed per token`
-    : `${snapshot.usage.turns} turns`;
 }
 
-function agentCard({ id, type, title, task, status, meta, onOpen }) {
-  const card = node('button', `agent-card ${roleClass(type)} status-${status}`);
-  card.type = 'button';
-  card.setAttribute('aria-label', `${title}: ${status}. ${task}`);
-  if (onOpen) card.onclick = onOpen;
-  const top = node('div', 'agent-top');
-  top.append(node('div', 'agent-icon', initial(type)), node('span', `badge badge-${status}`, STATUS_LABEL[status] || (status === 'idle' ? '○ IDLE' : '● WAITING')));
-  card.append(top, node('div', 'agent-role', title), node('div', 'agent-task', task));
-  if (meta) card.append(node('div', 'agent-meta', meta));
-  if (id && selectedAgent === id) card.classList.add('selected');
-  return card;
-}
-
-function renderFleet() {
-  const list = $('agent-list');
-  const agents = agentsList();
-  const busy = snapshot.session.status === 'running';
-  const supervisorStatus = busy ? 'running' : snapshot.running ? 'waiting' : 'idle';
-  list.replaceChildren(agentCard({
-    id: 'supervisor', type: 'supervisor', title: 'Supervisor', status: supervisorStatus,
-    task: snapshot.session.detail || (busy ? 'Planning and delegating…' : 'Waiting for your instruction'),
-    meta: `${agents.length} dispatched`,
-    onOpen: () => selectAgent('supervisor'),
-  }));
-  for (const agent of agents) {
-    list.append(agentCard({
-      id: agent.id, type: agent.type, title: agent.type, status: agent.status,
-      task: agent.description || 'No description',
-      meta: [rel(agent.status === 'running' ? agent.progress || agent.lastTool : agent.summary), elapsed(agent), agent.toolUses ? `${agent.toolUses} tools` : '', agent.background ? 'background' : '']
-        .filter(Boolean).join(' · '),
-      onOpen: () => openAgentDetail(agent.id),
-    }));
+function renderPaneShell() {
+  $('shell').classList.toggle('pane-open', view.paneOpen);
+  $('toggle-pane').setAttribute('aria-expanded', String(view.paneOpen));
+  for (const tab of document.querySelectorAll('.tab')) {
+    const active = !view.selectedAgent && tab.dataset.tab === view.tab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
   }
-  if (!agents.length) list.append(node('div', 'empty fleet-empty', 'No agents dispatched yet. Ask the supervisor to plan or run a ticket.'));
-  const running = agents.filter((a) => a.status === 'running').length;
-  $('agent-meta').textContent = `${running} running · ${agents.length} total`;
-}
-
-function verdictPills(verdicts = {}) {
-  return ['review', 'security', 'qa'].filter((k) => verdicts[k]).map((k) => {
-    const ok = ['APPROVE', 'PASS'].includes(verdicts[k].result);
-    return node('span', `pill ${ok ? 'pill-ok' : 'pill-bad'}`, `${k.toUpperCase()}: ${verdicts[k].result}`);
+  renderPane($('pane-body'), view, snapshot, personas, {
+    onBack: () => { view.selectedAgent = null; render(); },
+    onRefresh: () => post('/api/board/refresh').then(() => toast('Board refreshed')).catch((error) => toast(error.message)),
   });
 }
 
-function renderBoard() {
-  const { tickets, pulls, error, updatedAt } = snapshot.board;
-  const items = [...pulls, ...tickets];
-  const pipeline = $('pipeline');
-  pipeline.replaceChildren(...STAGES.map(([key, label]) => {
-    const stage = node('div', `stage stage-${key}`);
-    stage.append(node('strong', '', String(items.filter((i) => i.stage === key).length)), node('span', '', label));
-    return stage;
-  }));
-  const list = $('ticket-list');
-  list.replaceChildren();
-  if (!items.length) list.append(node('div', 'empty', error ? `GitHub unavailable: ${error}` : 'No open issues or pull requests yet. The supervisor files tickets as GitHub issues.'));
-  for (const item of items) {
-    const link = node('a', 'ticket');
-    link.href = item.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    const head = node('div', 'ticket-head');
-    const name = node('div');
-    name.append(node('span', 'ticket-id', `${item.branch ? 'PR' : 'ISSUE'} #${item.number}${item.branch ? ` · ${item.branch}` : ''}`), node('h3', '', item.title));
-    head.append(name, node('span', `pill stage-pill-${item.stage}`, STAGES.find(([key]) => key === item.stage)?.[1] ?? item.stage));
-    link.append(head);
-    const pills = verdictPills(item.verdicts);
-    if (pills.length) {
-      const row = node('div', 'ticket-actions');
-      row.append(...pills);
-      link.append(row);
-    }
-    list.append(link);
-  }
-  $('board-meta').textContent = updatedAt ? `Updated ${time(updatedAt)}${error ? ` · ${error}` : ''}` : 'Loading GitHub…';
-}
-
-function renderMessages() {
-  const box = $('messages');
-  const nearBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 60;
-  box.replaceChildren();
-  if (!snapshot.messages.length) box.append(node('div', 'empty', 'Try: "What is your role and what did you read first?" or "Start Phase 0 and report against G0."'));
-  for (const message of snapshot.messages) {
-    const asks = message.role === 'supervisor' && /(^|\n)\s*(QUESTION|NEEDS HUMAN|DECISION NEEDED)\b/i.test(message.text);
-    const item = node('div', `message ${message.role}${asks ? ' asks' : ''}`);
-    item.append(node('small', '', `${asks ? 'waiting on you · ' : ''}${message.role} · ${time(message.at)}`), node('div', 'message-text', rel(message.text)));
-    box.append(item);
-  }
-  if (snapshot.session.status === 'running') box.append(node('div', 'message supervisor typing', 'Supervisor is working…'));
-  if (snapshot.session.error) box.append(node('div', 'message error', snapshot.session.error));
-  if (nearBottom) box.scrollTop = box.scrollHeight;
-}
-
-function eventRow(entry) {
-  const item = node('div', `event kind-${entry.kind} ${roleClass(entry.agent)}`);
-  const head = node('div', 'event-head');
-  head.append(node('span', 'event-agent', entry.agent), node('span', 'event-kind', KIND_LABEL[entry.kind] || entry.kind), node('small', '', time(entry.at)));
-  item.append(head, node('div', 'event-text', rel(entry.text)));
-  return item;
-}
-
-function renderEvents() {
-  const entries = snapshot.activity.filter((e) => !selectedAgent || e.agentId === selectedAgent).slice(0, MAX_EVENTS);
-  const list = $('events');
-  list.replaceChildren(...entries.map(eventRow));
-  if (!entries.length) list.append(node('div', 'empty', 'Supervisor and agent activity appears here, live.'));
-  $('activity-filter').hidden = !selectedAgent;
-  $('activity-title').textContent = selectedAgent ? `Activity · ${selectedAgent === 'supervisor' ? 'supervisor' : snapshot.agents[selectedAgent]?.type ?? 'agent'}` : 'Activity';
-}
-
-function selectAgent(id) {
-  selectedAgent = selectedAgent === id ? null : id;
-  render();
-}
-
-function openAgentDetail(id) {
-  const agent = snapshot.agents[id];
-  if (!agent) return;
-  openAgent = id;
-  selectedAgent = id;
-  $('detail-id').textContent = `${agent.type.toUpperCase()} · ${(STATUS_LABEL[agent.status] || agent.status)} · ${elapsed(agent)}`;
-  $('detail-title').textContent = agent.description || agent.type;
-  const body = $('detail-body');
-  const grid = node('div', 'detail-grid');
-  for (const [label, value] of [
-    ['DISPATCHED BY', agent.parentId || 'supervisor'], ['MODE', agent.background ? 'Background' : 'Foreground'],
-    ['TOOL CALLS', String(agent.toolUses || 0)], ['TOKENS', agent.tokens ? agent.tokens.toLocaleString() : '—'],
-  ]) {
-    const field = node('div', 'detail-field');
-    field.append(node('small', '', label), document.createTextNode(value));
-    grid.append(field);
-  }
-  const brief = node('details');
-  brief.open = !agent.summary;
-  brief.append(node('summary', '', 'BRIEF FROM SUPERVISOR'), node('pre', 'detail-output', rel(agent.prompt) || 'Not captured'));
-  const children = [grid, brief];
-  if (agent.summary) children.push(node('div', 'section-kicker', 'RESULT'), node('pre', 'detail-output', rel(agent.summary)));
-  children.push(node('div', 'section-kicker', 'ACTIVITY'));
-  const events = snapshot.activity.filter((e) => e.agentId === id).slice(0, 40);
-  const feed = node('div', 'events');
-  feed.append(...(events.length ? events.map(eventRow) : [node('div', 'empty', 'No tool calls yet.')]));
-  children.push(feed);
-  body.replaceChildren(...children);
-  if (!$('detail-dialog').open) $('detail-dialog').showModal();
-}
+// Live updates replace DOM nodes; hold them while a pointer is pressed so clicks always land.
+let pointerDown = false;
+let renderPending = false;
 
 function render() {
   if (!snapshot) return;
-  renderHeader();
-  renderFleet();
-  renderBoard();
-  renderMessages();
-  renderEvents();
-  if (openAgent && $('detail-dialog').open) openAgentDetail(openAgent);
+  if (pointerDown) { renderPending = true; return; }
+  renderPending = false;
+  personas = assignPersonas(Object.values(snapshot.agents));
+  const chat = $('chat');
+  const pinned = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 80;
+  renderChrome();
+  renderTeam();
+  renderTimeline($('timeline'), snapshot, personas, {
+    onOpen: openAgent,
+    onSuggest: (text) => { $('input').value = text; send(); },
+    team: CORE_TEAM.map((type) => persona(type)),
+  });
+  renderPaneShell();
+  if (pinned) chat.scrollTop = chat.scrollHeight;
+}
+
+// ---- actions ----------------------------------------------------------------------------------
+function openAgent(id) {
+  view.selectedAgent = id;
+  view.paneOpen = true;
+  $('shell').classList.remove('sidebar-open');
+  render();
+}
+
+function focusInput() {
+  $('shell').classList.remove('sidebar-open');
+  $('input').focus();
+}
+
+function autosize() {
+  const input = $('input');
+  input.style.height = 'auto';
+  input.style.height = `${Math.min(input.scrollHeight, MAX_INPUT_HEIGHT)}px`;
+}
+
+async function send() {
+  const input = $('input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autosize();
+  try {
+    await post('/api/message', { text });
+  } catch (error) {
+    input.value = text;
+    autosize();
+    toast(error.message);
+  }
+}
+
+function applyTheme(theme) {
+  if (theme) document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
 }
 
 function connect() {
   const status = $('connection');
   const source = new EventSource('/api/stream');
-  source.onopen = () => { status.className = 'connection live'; status.querySelector('b').textContent = 'LIVE'; };
+  source.onopen = () => { status.className = 'conn live'; status.querySelector('b').textContent = 'Live'; };
+  let last = '';
   source.onmessage = (event) => {
+    if (event.data === last) return;
+    last = event.data;
     snapshot = JSON.parse(event.data);
     render();
   };
-  source.onerror = () => { status.className = 'connection down'; status.querySelector('b').textContent = 'RECONNECTING'; };
+  source.onerror = () => { status.className = 'conn down'; status.querySelector('b').textContent = 'Reconnecting'; };
 }
 
-async function sendMessage() {
-  const input = $('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  try {
-    await post('/api/message', { text });
-  } catch (error) {
-    input.value = text;
-    toast(error.message);
+// ---- wiring -----------------------------------------------------------------------------------
+$('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
+$('input').addEventListener('input', autosize);
+$('input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
+});
+$('stop').addEventListener('click', () => post('/api/stop').then(() => toast('Stopping Sage and the team…')).catch((error) => toast(error.message)));
+$('reset').addEventListener('click', () => {
+  if (window.confirm('Start a new session with Sage? This clears the conversation and team history from the dashboard.')) {
+    post('/api/reset').then(() => { view.selectedAgent = null; toast('New session ready'); }).catch((error) => toast(error.message));
   }
+});
+$('toggle-pane').addEventListener('click', () => { view.paneOpen = !view.paneOpen; render(); });
+$('close-pane').addEventListener('click', () => { view.paneOpen = false; render(); });
+$('gate-card').addEventListener('click', () => { view.tab = 'board'; view.selectedAgent = null; view.paneOpen = true; $('shell').classList.remove('sidebar-open'); render(); });
+for (const tab of document.querySelectorAll('.tab')) {
+  tab.addEventListener('click', () => { view.tab = tab.dataset.tab; view.selectedAgent = null; render(); });
+}
+$('open-sidebar').addEventListener('click', () => $('shell').classList.add('sidebar-open'));
+$('close-sidebar').addEventListener('click', () => $('shell').classList.remove('sidebar-open'));
+$('theme').addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = dark ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* storage unavailable: theme lasts this visit */ }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && view.selectedAgent) { view.selectedAgent = null; render(); }
+});
+
+document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+for (const type of ['pointerup', 'pointercancel']) {
+  document.addEventListener(type, () => {
+    pointerDown = false;
+    // Let the click event fire on the original node before re-rendering.
+    if (renderPending) setTimeout(render, 0);
+  }, true);
 }
 
-$('chat-form').onsubmit = (event) => { event.preventDefault(); sendMessage(); };
-$('chat-input').onkeydown = (event) => {
-  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }
-};
-$('stop').onclick = () => post('/api/stop').then(() => toast('Stopping the supervisor and its agents…')).catch((e) => toast(e.message));
-$('reset').onclick = () => {
-  if (confirm('Start a new supervisor session? The current conversation and agent history will be cleared from the dashboard.')) {
-    post('/api/reset').then(() => toast('New session ready')).catch((e) => toast(e.message));
-  }
-};
-$('refresh-board').onclick = () => post('/api/board/refresh').then(() => toast('Board refreshed')).catch((e) => toast(e.message));
-$('activity-filter').onclick = () => { selectedAgent = null; render(); };
-$('close-detail').onclick = () => { $('detail-dialog').close(); };
-$('detail-dialog').onclose = () => { openAgent = null; };
-
-const tick = () => {
-  $('clock').textContent = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  if (snapshot && agentsList().some((a) => a.status === 'running')) renderFleet();
-};
-tick();
-setInterval(tick, 1000);
+try { applyTheme(localStorage.getItem(THEME_KEY)); } catch { /* storage unavailable: follow the system theme */ }
+setInterval(() => { if (snapshot && Object.values(snapshot.agents).some((agent) => agent.status === 'running')) render(); }, 1000);
 connect();

@@ -22,14 +22,19 @@ const ASSETS = {
   '/': ['index.html', 'text/html'],
   '/app.js': ['app.js', 'text/javascript'],
   '/style.css': ['style.css', 'text/css'],
+  '/team.js': ['team.js', 'text/javascript'],
+  '/markdown.js': ['markdown.js', 'text/javascript'],
+  '/timeline.js': ['timeline.js', 'text/javascript'],
+  '/pane.js': ['pane.js', 'text/javascript'],
+  '/ui.js': ['ui.js', 'text/javascript'],
 };
 
 async function loadConfig() {
   try {
     const raw = JSON.parse(await readFile(join(PROJECT, '.claude', 'agent-system.json'), 'utf8'));
-    return { projectName: raw.projectName || basename(PROJECT), statusFile: raw.statusFile || 'docs/delivery/status.md', dashboard: raw.dashboard || {} };
+    return { projectName: process.env.PROJECT_NAME || raw.projectName || basename(PROJECT), statusFile: raw.statusFile || 'docs/delivery/status.md', dashboard: raw.dashboard || {} };
   } catch {
-    return { projectName: basename(PROJECT), statusFile: 'docs/delivery/status.md', dashboard: {} };
+    return { projectName: process.env.PROJECT_NAME || basename(PROJECT), statusFile: 'docs/delivery/status.md', dashboard: {} };
   }
 }
 

@@ -26,6 +26,13 @@ Open http://127.0.0.1:4173.
 | Allowed tools | `"dashboard": {"allowedTools": [...]}` in `.claude/agent-system.json` (defaults are in `lib/session.mjs`) |
 | State file | `DASHBOARD_DATA_PATH` (default `data/state.json`, git-ignored) |
 
+## The interface
+Modelled on the Claude desktop app, light and dark.
+- **Chat with Sage 🧭 (the supervisor)** is the main page. Sage's replies render as Markdown; its own tool calls fold into "Sage used N tools"; replies ending in `QUESTION:` are flagged *Waiting on you*.
+- **Delegation cards** appear in the chat the moment Sage assigns work ("Sage assigned Bolt"), with live status, the current step and the result.
+- **Team sidebar**: every agent is a named teammate: Nova 📋 product analyst, Pixel 🎨 UX, Atlas 🏛️ architect, Bolt/Forge/Rivet 🔨 builders, Iris 🔍 reviewer, Aegis 🛡️ security, Quinn 🧪 QA, Scout 🔭 explorer. Presence dots show who is working. Names live in `public/team.js`.
+- **Side pane**: the team's live activity, the GitHub board, or a teammate's profile (brief, result, every step).
+
 ## How it works
 ```
 Browser ──SSE──▶ server.mjs ──spawns──▶ claude --agent supervisor -p

@@ -15,9 +15,14 @@ export function initialState() {
     agents: {},
     activity: [],
     denials: [],
+    seq: 0,
   };
 }
 
+// Monotonic order across messages, agents and activity, so the chat can interleave them.
+const bump = (state) => ({ ...state, seq: (state.seq ?? 0) + 1 });
+
+const keep = (text, size = MAX_TEXT) => String(text ?? '').trim().slice(0, size);
 const clip = (text, size = SNIPPET) => {
   const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
   return flat.length > size ? `${flat.slice(0, size - 1)}…` : flat;
@@ -35,19 +40,23 @@ export function describeTool(name, input = {}) {
   return clip(`${name}${pick ? ` · ${pick}` : ''}`);
 }
 
-const withActivity = (state, entry) => ({
-  ...state,
-  activity: [{ id: `${entry.at}-${state.activity.length}-${Math.random().toString(36).slice(2, 7)}`, ...entry }, ...state.activity]
-    .slice(0, MAX_ACTIVITY),
-});
+const withActivity = (state, entry) => {
+  const next = bump(state);
+  return {
+    ...next,
+    activity: [{ id: `a${next.seq}`, seq: next.seq, ...entry }, ...state.activity].slice(0, MAX_ACTIVITY),
+  };
+};
 
 const patchAgent = (state, id, patch) => {
+  const isNew = !state.agents[id];
+  const base = isNew ? bump(state) : state;
   const current = state.agents[id] ?? {
-    id, taskId: null, type: 'agent', description: '', prompt: '', status: 'running',
+    id, seq: base.seq, taskId: null, type: 'agent', description: '', prompt: '', status: 'running',
     background: false, startedAt: patch.startedAt ?? null, endedAt: null,
     lastTool: '', progress: '', tokens: 0, toolUses: 0, summary: '',
   };
-  return { ...state, agents: { ...state.agents, [id]: { ...current, ...patch } } };
+  return { ...base, agents: { ...state.agents, [id]: { ...current, ...patch } } };
 };
 
 const agentIdForTask = (state, taskId) =>
@@ -57,12 +66,13 @@ const agentLabel = (state, id) => (id === SUPERVISOR ? SUPERVISOR : state.agents
 
 function addSupervisorText(state, messageId, text, at) {
   const last = state.messages.at(-1);
-  if (last?.role === SUPERVISOR && last.messageId === messageId) {
+  if (last?.role === SUPERVISOR && last.messageId === messageId && last.seq === state.seq) {
     const merged = { ...last, text: `${last.text}\n\n${text}`.slice(-MAX_TEXT) };
     return { ...state, messages: [...state.messages.slice(0, -1), merged] };
   }
-  const message = { id: `${messageId ?? 'm'}-${state.messages.length}`, messageId, role: SUPERVISOR, text: text.slice(-MAX_TEXT), at };
-  return { ...state, messages: [...state.messages, message] };
+  const next = bump(state);
+  const message = { id: `m${next.seq}`, seq: next.seq, messageId, role: SUPERVISOR, text: text.slice(-MAX_TEXT), at };
+  return { ...next, messages: [...state.messages, message] };
 }
 
 function onAssistant(state, event, at) {
@@ -109,7 +119,7 @@ function onUser(state, event, at) {
       next = patchAgent(next, block.tool_use_id, {
         status: block.is_error ? 'failed' : 'completed',
         endedAt: agent.endedAt ?? at,
-        summary: agent.summary || clip(text, 600),
+        summary: agent.summary || keep(text),
       });
     }
     if (block.is_error) {
@@ -147,7 +157,7 @@ function onTask(state, event, at) {
     case 'task_notification': {
       const status = event.status === 'completed' ? 'completed' : event.status ?? 'completed';
       const done = patchAgent(state, id, {
-        status, endedAt: agent?.endedAt ?? at, summary: clip(event.summary, 600),
+        status, endedAt: agent?.endedAt ?? at, summary: keep(event.summary) || agent?.summary || '',
         tokens: event.usage?.total_tokens ?? agent?.tokens ?? 0,
         toolUses: event.usage?.tool_uses ?? agent?.toolUses ?? 0,
       });
@@ -206,10 +216,11 @@ export function reduce(state, event, at = new Date().toISOString()) {
 
 /** Record a message the human sent. */
 export function addUserMessage(state, text, at = new Date().toISOString()) {
+  const next = bump(state);
   return {
-    ...state,
+    ...next,
     session: { ...state.session, status: 'running', error: null, startedAt: state.session.startedAt ?? at },
-    messages: [...state.messages, { id: `u-${state.messages.length}-${Date.now()}`, role: 'user', text: text.slice(0, MAX_TEXT), at }],
+    messages: [...state.messages, { id: `u${next.seq}`, seq: next.seq, role: 'user', text: text.slice(0, MAX_TEXT), at }],
   };
 }
 

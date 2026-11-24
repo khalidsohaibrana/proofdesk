@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test test/",
-    "check": "node --check server.mjs && node --check lib/normalize.mjs && node --check lib/session.mjs && node --check lib/board.mjs && node --check public/app.js",
+    "check": "node --check server.mjs && node --check lib/normalize.mjs && node --check lib/session.mjs && node --check lib/board.mjs && for f in public/*.js; do node --check $f || exit 1; done",
     "probe": "node scripts/probe.mjs"
   }
 }

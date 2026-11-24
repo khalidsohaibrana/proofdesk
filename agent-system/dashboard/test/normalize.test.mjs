@@ -75,3 +75,12 @@ test('describeTool summarises common tools', () => {
   assert.equal(describeTool('Bash', { command: 'npm test' }), 'Bash · npm test');
   assert.equal(describeTool('Agent', { subagent_type: 'reviewer', description: 'PR 4' }), 'Agent · reviewer: PR 4');
 });
+
+test('orders messages, dispatches and activity with one increasing sequence', () => {
+  const state = replay();
+  const seqs = [...state.messages.map((m) => m.seq), ...Object.values(state.agents).map((a) => a.seq), ...state.activity.map((e) => e.seq)];
+  assert.ok(seqs.every(Number.isInteger));
+  assert.equal(new Set(seqs).size, seqs.length, 'sequence numbers are unique');
+  const user = state.messages.find((m) => m.role === 'user');
+  assert.ok(Object.values(state.agents).every((a) => a.seq > user.seq), 'dispatches come after the request');
+});
