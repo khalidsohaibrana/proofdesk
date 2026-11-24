@@ -1,4 +1,5 @@
 // Dashboard shell: sidebar team, chat with Sage, side pane, composer. Live via Server-Sent Events.
+import { parseDecision } from './decision.js';
 import { renderPane } from './pane.js';
 import { CORE_TEAM, assignPersonas, persona } from './team.js';
 import { renderTimeline } from './timeline.js';
@@ -85,7 +86,8 @@ function renderLive() {
   const rows = [];
   const lastSage = [...snapshot.messages].reverse().find((message) => message.role === 'supervisor');
   if (snapshot.session.status === 'running') rows.push(liveRow(persona('supervisor'), sageStep(), '', 'live'));
-  else if (!snapshot.replay && snapshot.running && !working.length && lastSage && asksHuman(lastSage.text)) {
+  // When answer buttons are showing, they already say Sage is waiting; don't repeat it here.
+  else if (!snapshot.replay && snapshot.running && !working.length && lastSage && asksHuman(lastSage.text) && !pendingDecision()) {
     rows.push(liveRow(persona('supervisor'), 'is waiting for your decision. Reply below.', '', 'wait'));
   }
   for (const agent of working) {
@@ -98,6 +100,40 @@ function renderLive() {
   $('live-count').hidden = !working.length;
   $('live-count').textContent = `${working.length}/${cap}`;
   $('live-count').classList.toggle('full', working.length >= cap);
+}
+
+// ---- quick replies: one-click answers to Sage's open question ----------------------------
+function pendingDecision() {
+  const last = snapshot.messages.at(-1);
+  if (!last || last.role !== 'supervisor' || snapshot.session.status === 'running') return null;
+  return parseDecision(last.text);
+}
+
+function renderQuickReplies() {
+  const box = $('quick-replies');
+  const decision = pendingDecision();
+  box.hidden = !decision;
+  if (!decision) { box.replaceChildren(); return; }
+  const replay = Boolean(snapshot.replay);
+  box.replaceChildren(
+    h('div', { class: 'qr-head' }, h('span', { class: 'qr-kicker' }, 'Sage needs your decision'), decision.question && h('span', { class: 'qr-q' }, decision.question)),
+    h('div', { class: 'qr-row' },
+      decision.options.map((option) => h('button', {
+        class: `qr${option.recommended ? ' qr-rec' : ''}`, type: 'button', disabled: replay,
+        title: option.recommended ? 'Recommended by Sage' : undefined,
+        on: { click: () => answer(option.label) },
+      }, option.recommended && h('span', { class: 'qr-star', 'aria-hidden': 'true' }, '★'), option.label, option.recommended && h('span', { class: 'sr' }, ' (recommended)'))),
+      h('button', { class: 'qr qr-other', type: 'button', disabled: replay, on: { click: () => focusInput() } }, 'Other…')));
+}
+
+async function answer(text) {
+  $('quick-replies').hidden = true;
+  try {
+    await post('/api/message', { text });
+  } catch (error) {
+    $('quick-replies').hidden = false;
+    toast(error.message);
+  }
 }
 
 // ---- header, sidebar footer, composer -----------------------------------------------------
@@ -154,6 +190,7 @@ function render() {
   renderChrome();
   renderTeam();
   renderLive();
+  renderQuickReplies();
   renderTimeline($('timeline'), snapshot, personas, {
     onOpen: openAgent,
     onSuggest: (text) => { $('input').value = text; send(); },

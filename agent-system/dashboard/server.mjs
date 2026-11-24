@@ -32,6 +32,7 @@ const ASSETS = {
   '/timeline.js': ['timeline.js', 'text/javascript'],
   '/pane.js': ['pane.js', 'text/javascript'],
   '/ui.js': ['ui.js', 'text/javascript'],
+  '/decision.js': ['decision.js', 'text/javascript'],
 };
 
 async function loadConfig() {

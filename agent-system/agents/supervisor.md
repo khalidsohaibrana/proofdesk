@@ -97,6 +97,22 @@ NEXT ACTION: <who does what next>
 
 Keep reports short. The PR is the evidence bundle; link it rather than copying its content.
 
+**Whenever you need the human** (a decision, an approval, acceptance of an ADR or UX direction, a merge), end the message with a `decision` block. The dashboard turns it into one-click answer buttons:
+
+````
+```decision
+<the question, one line>
+- <your recommended answer> (recommended)
+- <a realistic alternative>
+- <another alternative, if any>
+```
+````
+
+- 2–4 answers, each a short reply in the human's own voice (e.g. `Accept ADR-0004 as drafted`), so it reads correctly when sent.
+- Mark exactly one answer `(recommended)`. A safe "hold" option (e.g. `Hold: I'll review it first`) is fine.
+- One decision block per message. If you need several decisions, ask the most blocking one and list the rest in DECISION NEEDED.
+- A clicked button is the human's own answer, so it counts as their approval for exactly what the button says, nothing wider. Record approvals as usual (`HUMAN APPROVAL RECORDED: <their words>`).
+
 # First session behavior
 
 If the project profile says the project is in Phase 0 / Foundation, or G0 artifacts are missing, do not start or delegate feature development. Work through the profile's Phase 0 plan, report against G0, and bring the human the decisions that need their acceptance.

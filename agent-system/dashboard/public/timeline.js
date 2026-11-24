@@ -1,5 +1,6 @@
 // The main chat: your messages, Sage's replies, Sage's own tool steps and
 // inline delegation cards for every teammate Sage assigns, in the order they happened.
+import { parseDecision, stripDecision } from './decision.js';
 import { renderMarkdown } from './markdown.js';
 import { persona } from './team.js';
 import { asksHuman, avatar, elapsed, enterClass, h, humanize, relPath, statusOf } from './ui.js';
@@ -65,13 +66,17 @@ function emptyState(team, onSuggest) {
 
 function messageView(message, root) {
   if (message.role === 'user') return h('div', { class: 'msg msg-user' }, h('div', { class: 'bubble' }, message.text));
-  const asks = asksHuman(message.text);
+  const decision = parseDecision(message.text);
+  const asks = asksHuman(message.text) || Boolean(decision);
   const prose = h('div', { class: 'prose' });
-  prose.append(renderMarkdown(relPath(message.text, root)));
+  prose.append(renderMarkdown(relPath(stripDecision(message.text), root)));
+  const choices = decision && h('div', { class: 'choices', 'aria-label': 'Options Sage offered' },
+    decision.question && h('span', { class: 'choices-q' }, decision.question),
+    decision.options.map((option) => h('span', { class: `choice${option.recommended ? ' rec' : ''}` }, option.recommended ? `★ ${option.label}` : option.label)));
   return h('div', { class: `msg msg-agent${asks ? ' asks' : ''}` },
     h('div', { class: 'msg-head' }, avatar(SAGE, 'avatar-sm'), h('span', { class: 'msg-name' }, SAGE.name),
       asks && h('span', { class: 'chip chip-wait' }, 'Waiting on you')),
-    prose);
+    prose, choices);
 }
 
 function stepsView(entries, root, key, active) {

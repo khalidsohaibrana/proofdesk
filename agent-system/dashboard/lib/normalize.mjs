@@ -5,6 +5,7 @@ export const MAX_ACTIVITY = 400;
 const MAX_TEXT = 4000;
 const SNIPPET = 160;
 const SUPERVISOR = 'supervisor';
+const ASYNC_LAUNCH = /^async agent launched/i;
 
 /** @returns {object} empty dashboard state */
 export function initialState() {
@@ -122,6 +123,12 @@ function onUser(state, event, at) {
     if (block.type !== 'tool_result') continue;
     const agent = next.agents[block.tool_use_id];
     const text = Array.isArray(block.content) ? block.content.map((part) => part.text ?? '').join(' ') : String(block.content ?? '');
+    // The CLI may run an agent asynchronously even when the dispatch didn't ask for it; its tool_result
+    // then only says it launched. That is a start, not a result: keep it running until task_notification.
+    if (agent && !block.is_error && ASYNC_LAUNCH.test(text.trim())) {
+      next = patchAgent(next, block.tool_use_id, { background: true, status: 'running', endedAt: null });
+      continue;
+    }
     // A refused dispatch (e.g. blocked by the concurrency cap) fails even if it was meant for the background.
     if (agent && (!agent.background || block.is_error)) {
       next = patchAgent(next, block.tool_use_id, {
@@ -175,7 +182,9 @@ function onTask(state, event, at) {
         status: 'running', startedAt: agent?.startedAt ?? at,
       }), { at, agentId: id, agent: event.subagent_type ?? 'agent', kind: 'start', text: clip(event.description) });
     case 'task_progress':
+      // Progress means the agent is still working, whatever an earlier event implied.
       return patchAgent(state, id, {
+        ...(agent && !agent.notified ? { status: 'running', endedAt: null } : {}),
         taskId: event.task_id, progress: clip(event.description),
         lastTool: event.last_tool_name ?? agent?.lastTool ?? '',
         tokens: event.usage?.total_tokens ?? agent?.tokens ?? 0,
@@ -188,7 +197,7 @@ function onTask(state, event, at) {
     case 'task_notification': {
       const status = event.status === 'completed' ? 'completed' : event.status ?? 'completed';
       const done = patchAgent(state, id, {
-        status, endedAt: agent?.endedAt ?? at, summary: keep(event.summary) || agent?.summary || '',
+        status, notified: true, endedAt: agent?.endedAt ?? at, summary: keep(event.summary) || agent?.summary || '',
         tokens: event.usage?.total_tokens ?? agent?.tokens ?? 0,
         toolUses: event.usage?.tool_uses ?? agent?.toolUses ?? 0,
       });
