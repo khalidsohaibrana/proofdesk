@@ -1,5 +1,5 @@
 // Runs the supervisor as one long-lived Claude Code process and streams its events.
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { createInterface } from 'node:readline';
 
@@ -13,6 +13,43 @@ export const DEFAULT_ALLOWED_TOOLS = [
 // Interactive-only tools: the supervisor asks the human in plain text instead.
 const DISALLOWED_TOOLS = ['AskUserQuestion'];
 const STOP_GRACE_MS = 3000;
+const AUTH_TIMEOUT_MS = 15_000;
+
+// Variables that would make the CLI bill an API key or another provider instead of
+// the signed-in Claude subscription. They are removed from the child environment.
+export const API_BILLING_ENV = [
+  'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
+  'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY',
+  'AWS_BEARER_TOKEN_BEDROCK',
+];
+
+/** Copy of the environment with API-billing overrides removed. */
+export function planOnlyEnv(env = process.env) {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !API_BILLING_ENV.includes(key)));
+}
+
+/**
+ * Confirm the CLI is signed in with a Claude subscription (not an API key or Console login).
+ * @param {string} [command]
+ * @returns {Promise<{ok: boolean, plan: string|null, reason: string|null}>}
+ */
+export function checkPlanAuth(command = 'claude') {
+  return new Promise((resolveCheck) => {
+    execFile(command, ['auth', 'status'], { env: planOnlyEnv(), timeout: AUTH_TIMEOUT_MS }, (error, stdout) => {
+      let status = {};
+      try {
+        status = JSON.parse(stdout);
+      } catch {
+        return resolveCheck({ ok: false, plan: null, reason: `Could not read \`${command} auth status\`${error ? `: ${error.message}` : ''}` });
+      }
+      if (!status.loggedIn) return resolveCheck({ ok: false, plan: null, reason: 'Claude CLI is signed out. Run `claude auth login --claudeai` in a terminal.' });
+      if (status.authMethod !== 'claude.ai') {
+        return resolveCheck({ ok: false, plan: null, reason: `Claude CLI is signed in with "${status.authMethod}", which bills API usage. Run \`claude auth login --claudeai\` to use your subscription.` });
+      }
+      return resolveCheck({ ok: true, plan: status.subscriptionType ?? 'subscription', reason: null });
+    });
+  });
+}
 
 /**
  * @typedef {object} SessionOptions
@@ -57,7 +94,7 @@ export class SupervisorSession extends EventEmitter {
     const child = spawn(this.options.command, this.buildArgs(resumeId), {
       cwd: this.options.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
+      env: planOnlyEnv(),
     });
     this.child = child;
     let stderrTail = '';

@@ -186,7 +186,15 @@ export function reduce(state, event, at = new Date().toISOString()) {
   if (event.type === 'rate_limit_event') return { ...state, usage: { ...state.usage, rateLimit: event.rate_limit_info ?? null } };
   if (event.type !== 'system') return state;
   if (event.subtype === 'init') {
-    return { ...state, session: { ...state.session, id: event.session_id ?? state.session.id, model: event.model ?? state.session.model } };
+    return {
+      ...state,
+      session: {
+        ...state.session,
+        id: event.session_id ?? state.session.id,
+        model: event.model ?? state.session.model,
+        apiKeySource: event.apiKeySource ?? state.session.apiKeySource ?? null,
+      },
+    };
   }
   if (event.subtype?.startsWith('task_')) return onTask(state, event, at);
   if (event.subtype === 'post_turn_summary') return { ...state, session: { ...state.session, detail: clip(event.status_detail, 240) } };

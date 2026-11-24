@@ -5,7 +5,7 @@ import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addUserMessage, initialState, reduce, stopAll } from './lib/normalize.mjs';
-import { SupervisorSession } from './lib/session.mjs';
+import { SupervisorSession, checkPlanAuth } from './lib/session.mjs';
 import { loadBoard } from './lib/board.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -55,7 +55,15 @@ const session = new SupervisorSession({
   ...(config.dashboard.allowedTools ? { allowedTools: config.dashboard.allowedTools } : {}),
 });
 
-const snapshot = () => ({ ...state, board, running: session.running, project: { name: config.projectName, path: PROJECT } });
+// Billing guard: agents only run on the signed-in Claude subscription, never an API key.
+let billing = { ok: false, plan: null, reason: 'Checking Claude sign-in…', checkedAt: null };
+async function refreshBilling() {
+  billing = { ...(await checkPlanAuth()), checkedAt: new Date().toISOString() };
+  push();
+  return billing;
+}
+
+const snapshot = () => ({ ...state, board, billing, running: session.running, project: { name: config.projectName, path: PROJECT } });
 
 let pushTimer = null;
 function push() {
@@ -97,6 +105,10 @@ async function refreshBoard() {
 }
 
 session.on('event', (event) => {
+  if (event.type === 'system' && event.subtype === 'init' && event.apiKeySource && event.apiKeySource !== 'none') {
+    session.stop();
+    billing = { ...billing, ok: false, reason: `Stopped: the CLI used an API key (${event.apiKeySource}) instead of your subscription.` };
+  }
   setState(reduce(state, event));
   if (event.type === 'result' || event.subtype === 'task_notification') refreshBoard();
 });
@@ -144,6 +156,7 @@ const routes = {
   'POST /api/message': async (req, res) => {
     const text = String((await readBody(req)).text ?? '').trim();
     if (!text) return send(res, 400, { error: 'Message required' });
+    if (!session.running && !(await refreshBilling()).ok) return send(res, 412, { error: billing.reason });
     setState(addUserMessage(state, text.slice(0, MAX_MESSAGE)));
     session.send(text.slice(0, MAX_MESSAGE), state.session.id);
     return send(res, 202, { accepted: true });
@@ -176,6 +189,7 @@ const server = createServer(async (req, res) => {
 });
 
 refreshBoard();
+refreshBilling();
 setInterval(refreshBoard, BOARD_POLL_MS).unref();
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {

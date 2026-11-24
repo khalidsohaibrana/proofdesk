@@ -55,7 +55,13 @@ function renderHeader() {
   $('brand-symbol').textContent = name[0] || 'A';
   $('location-name').textContent = name;
   document.title = `${snapshot.project.name} · Agent Command`;
-  $('runtime').textContent = `Claude Code${snapshot.session.model ? ` · ${snapshot.session.model}` : ''}`;
+  const { billing } = snapshot;
+  const plan = billing.ok ? `${billing.plan} plan` : 'not on plan';
+  $('runtime').textContent = `Claude Code · ${plan}${snapshot.session.model ? ` · ${snapshot.session.model}` : ''}`;
+  $('runtime').className = billing.ok ? 'billing-ok' : 'billing-bad';
+  $('billing-banner').hidden = billing.ok || !billing.checkedAt;
+  $('billing-banner').textContent = billing.reason ?? '';
+  $('chat-form').querySelector('button').disabled = !billing.ok && !snapshot.running;
   $('gate').textContent = snapshot.board.gate || 'No gate found in the status file.';
   $('stop').hidden = !snapshot.running;
   $('reset').disabled = snapshot.running;
@@ -68,7 +74,9 @@ function renderHeader() {
   $('dispatch-count').textContent = String(agents.length);
   $('checking-count').textContent = String(snapshot.board.pulls.filter((p) => ['review', 'qa'].includes(p.stage)).length);
   $('cost').textContent = `$${snapshot.usage.costUsd.toFixed(2)}`;
-  $('turns').textContent = `${snapshot.usage.turns} turns · subscription-billed`;
+  $('turns').textContent = billing.ok
+    ? `${snapshot.usage.turns} turns · on your ${billing.plan} plan, not billed per token`
+    : `${snapshot.usage.turns} turns`;
 }
 
 function agentCard({ id, type, title, task, status, meta, onOpen }) {
