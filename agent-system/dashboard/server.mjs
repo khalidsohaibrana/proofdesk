@@ -4,7 +4,8 @@ import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { addUserMessage, initialState, reduce, stopAll } from './lib/normalize.mjs';
+import { addUserMessage, failCheckpoint, initialState, reduce, stopAll } from './lib/normalize.mjs';
+import { Rotator, contextBudget, withStartupPrefix } from './lib/rotation.mjs';
 import { SupervisorSession, checkPlanAuth } from './lib/session.mjs';
 import { loadBoard } from './lib/board.mjs';
 import { RunRecorder } from './lib/recorder.mjs';
@@ -69,6 +70,8 @@ const session = new SupervisorSession({
   ...(config.dashboard.allowedTools ? { allowedTools: config.dashboard.allowedTools } : {}),
 });
 
+const CONTEXT_BUDGET = contextBudget();
+
 // Billing guard: agents only run on the signed-in Claude subscription, never an API key.
 let billing = { ok: false, plan: null, reason: 'Checking Claude sign-in…', checkedAt: null };
 async function refreshBilling() {
@@ -79,9 +82,20 @@ async function refreshBilling() {
   return billing;
 }
 
+function setState(next) {
+  state = next;
+  push();
+  save();
+}
+
+const rotator = new Rotator({
+  session, getState: () => state, setState, budget: CONTEXT_BUDGET, replay: Boolean(player),
+  onLog: (line) => process.stderr.write(`[dashboard] ${line}\n`),
+});
+
 const snapshot = () => (player
-  ? { ...player.world.state, board: player.world.board, billing: player.world.billing, running: player.world.state.session.status === 'running', now: player.now(), replay: player.info(), project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } }
-  : { ...state, board, billing, running: session.running, now: new Date().toISOString(), replay: null, project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } });
+  ? { ...player.world.state, board: player.world.board, billing: player.world.billing, running: player.world.state.session.status === 'running', contextBudget: CONTEXT_BUDGET, now: player.now(), replay: player.info(), project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } }
+  : { ...state, board, billing, running: session.running, contextBudget: CONTEXT_BUDGET, rotating: rotator.busy, now: new Date().toISOString(), replay: null, project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } });
 
 let pushTimer = null;
 function push() {
@@ -107,12 +121,6 @@ function save() {
   }, SAVE_DEBOUNCE_MS);
 }
 
-function setState(next) {
-  state = next;
-  push();
-  save();
-}
-
 if (player) player.on('change', push);
 
 async function refreshBoard() {
@@ -134,9 +142,11 @@ session.on('event', (event) => {
   recorder.write('event', { event });
   setState(reduce(state, event));
   if (event.type === 'result' || event.subtype === 'task_notification') refreshBoard();
+  if (event.type === 'result') rotator.onResult(event);
 });
 session.on('exit', ({ reason, expected }) => {
   recorder.write('exit', { reason });
+  if (rotator.onExit()) return push();
   setState(stopAll(state, reason));
   if (!expected) process.stderr.write(`[dashboard] ${reason}\n`);
 });
@@ -181,6 +191,7 @@ const routes = {
     const text = String((await readBody(req)).text ?? '').trim();
     if (!text) return send(res, 400, { error: 'Message required' });
     if (player) return send(res, 409, { error: 'This is a replay of a recorded run' });
+    if (rotator.busy) return send(res, 409, { error: 'Sage is saving a checkpoint. Try again in a moment.' });
     if (!session.running && !(await refreshBilling()).ok) return send(res, 412, { error: billing.reason });
     if (!recorder.active) {
       recorder.start();
@@ -189,13 +200,24 @@ const routes = {
     }
     recorder.write('human', { text: text.slice(0, MAX_MESSAGE) });
     setState(addUserMessage(state, text.slice(0, MAX_MESSAGE)));
-    session.send(text.slice(0, MAX_MESSAGE), state.session.id);
+    rotator.noteHumanMessage();
+    const fresh = !session.running && !state.session.id;
+    session.send(withStartupPrefix(text.slice(0, MAX_MESSAGE), fresh), state.session.id);
     return send(res, 202, { accepted: true });
   },
   'POST /api/stop': (req, res) => send(res, session.stop() ? 202 : 409, session.running ? { stopping: true } : { error: 'Supervisor is not running' }),
-  'POST /api/reset': (req, res) => {
-    if (session.running) return send(res, 409, { error: 'Stop the supervisor before starting a new session' });
+  'POST /api/reset': async (req, res) => {
     if (player) return send(res, 409, { error: 'This is a replay of a recorded run' });
+    const waiting = session.running && !rotator.busy && state.session.status === 'idle' && state.session.id;
+    if (session.running && !waiting) return send(res, 409, { error: 'Stop the supervisor before starting a new session' });
+    if (waiting) {
+      // Let Sage save a checkpoint before the session is dropped.
+      const saved = await rotator.checkpointAndStop();
+      if (!saved.ok) {
+        setState(failCheckpoint(state, saved.error));
+        return send(res, 502, { error: saved.error });
+      }
+    }
     recorder.end();
     setState(initialState());
     return send(res, 200, { reset: true });
