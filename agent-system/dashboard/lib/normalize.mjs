@@ -122,7 +122,8 @@ function onUser(state, event, at) {
     if (block.type !== 'tool_result') continue;
     const agent = next.agents[block.tool_use_id];
     const text = Array.isArray(block.content) ? block.content.map((part) => part.text ?? '').join(' ') : String(block.content ?? '');
-    if (agent && !agent.background) {
+    // A refused dispatch (e.g. blocked by the concurrency cap) fails even if it was meant for the background.
+    if (agent && (!agent.background || block.is_error)) {
       next = patchAgent(next, block.tool_use_id, {
         status: block.is_error ? 'failed' : 'completed',
         endedAt: agent.endedAt ?? at,

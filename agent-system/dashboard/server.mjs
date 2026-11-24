@@ -37,9 +37,9 @@ const ASSETS = {
 async function loadConfig() {
   try {
     const raw = JSON.parse(await readFile(join(PROJECT, '.claude', 'agent-system.json'), 'utf8'));
-    return { projectName: process.env.PROJECT_NAME || raw.projectName || basename(PROJECT), statusFile: raw.statusFile || 'docs/delivery/status.md', dashboard: raw.dashboard || {} };
+    return { maxConcurrentAgents: raw.maxConcurrentAgents ?? 7, projectName: process.env.PROJECT_NAME || raw.projectName || basename(PROJECT), statusFile: raw.statusFile || 'docs/delivery/status.md', dashboard: raw.dashboard || {} };
   } catch {
-    return { projectName: process.env.PROJECT_NAME || basename(PROJECT), statusFile: 'docs/delivery/status.md', dashboard: {} };
+    return { maxConcurrentAgents: 7, projectName: process.env.PROJECT_NAME || basename(PROJECT), statusFile: 'docs/delivery/status.md', dashboard: {} };
   }
 }
 
@@ -78,8 +78,8 @@ async function refreshBilling() {
 }
 
 const snapshot = () => (player
-  ? { ...player.world.state, board: player.world.board, billing: player.world.billing, running: player.world.state.session.status === 'running', now: player.now(), replay: player.info(), project: { name: config.projectName, path: PROJECT } }
-  : { ...state, board, billing, running: session.running, now: new Date().toISOString(), replay: null, project: { name: config.projectName, path: PROJECT } });
+  ? { ...player.world.state, board: player.world.board, billing: player.world.billing, running: player.world.state.session.status === 'running', now: player.now(), replay: player.info(), project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } }
+  : { ...state, board, billing, running: session.running, now: new Date().toISOString(), replay: null, project: { name: config.projectName, path: PROJECT, maxConcurrentAgents: config.maxConcurrentAgents } });
 
 let pushTimer = null;
 function push() {

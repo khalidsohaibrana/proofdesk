@@ -94,8 +94,10 @@ function renderLive() {
   }
   $('live').hidden = !rows.length;
   $('live').replaceChildren(...rows);
+  const cap = snapshot.project.maxConcurrentAgents ?? 7;
   $('live-count').hidden = !working.length;
-  $('live-count').textContent = String(working.length);
+  $('live-count').textContent = `${working.length}/${cap}`;
+  $('live-count').classList.toggle('full', working.length >= cap);
 }
 
 // ---- header, sidebar footer, composer -----------------------------------------------------
