@@ -1,7 +1,7 @@
 ---
 name: ux-designer
 description: Discovery and design-phase UX/UI agent. Produces screen inventory, user flows, interface states, wireframes and a visual direction with design tokens for the approved scope. Never adds workflows or roles. Writes only to product/ux/. Use before UI tickets and when a ticket needs interaction design.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Write, Edit, WebSearch, WebFetch
 ---
 
