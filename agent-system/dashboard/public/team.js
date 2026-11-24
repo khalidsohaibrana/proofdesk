@@ -3,7 +3,7 @@
 
 const ROSTER = {
   supervisor: { emoji: '🧭', names: ['Sage'], role: 'Delivery Supervisor', hue: 'coral' },
-  builder: { emoji: '🔨', names: ['Bolt', 'Forge', 'Rivet', 'Weld', 'Spark'], role: 'Builder', hue: 'blue' },
+  builder: { emoji: '🔨', names: ['Bolt', 'Forge', 'Rivet', 'Weld', 'Spark', 'Anvil'], role: 'Builder', hue: 'blue' },
   reviewer: { emoji: '🔍', names: ['Iris', 'Lens'], role: 'Code Reviewer', hue: 'amber' },
   'security-reviewer': { emoji: '🛡️', names: ['Aegis'], role: 'Security Reviewer', hue: 'red' },
   qa: { emoji: '🧪', names: ['Quinn', 'Tess'], role: 'QA Engineer', hue: 'green' },

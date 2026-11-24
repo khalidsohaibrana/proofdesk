@@ -33,11 +33,11 @@ export function elapsed(agent) {
   return mins < 60 ? `${mins}m ${secs % 60}s` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-/** Strip the project root from paths so text stays readable. */
+/** Strip the project root and agent worktree prefixes from paths so text stays readable. */
 export function relPath(text, root) {
   const value = String(text ?? '');
-  if (!root) return value;
-  return value.split(`${root}/`).join('').split(root).join('.');
+  const relative = root ? value.split(`${root}/`).join('').split(root).join('.') : value;
+  return relative.replace(/\.claude\/worktrees\/[\w-]+\//g, '');
 }
 
 export const STATUS = {

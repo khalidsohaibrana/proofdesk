@@ -140,7 +140,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .plan.bad { color: var(--bad); }
 .plan.bad .dot { background: var(--bad); }
 .foot-row { display: flex; align-items: center; justify-content: space-between; }
-.conn { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-3); }
+.conn { display: inline-flex; flex-direction: row; align-items: center; gap: 7px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
 .conn b { font-weight: 400; }
 .conn.live .dot { background: var(--done); }
 .conn.down .dot { background: var(--bad); }
@@ -157,7 +157,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .who-name { font-weight: 600; font-size: 14px; }
 .who-role { font-weight: 400; color: var(--text-3); margin-left: 6px; font-size: 13px; }
-.who-status { font-size: 12px; color: var(--text-3); }
+.who-status { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.who > div { min-width: 0; }
 .who-status.live { color: var(--live); }
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .usage { font-size: 12px; color: var(--text-3); }
@@ -281,7 +282,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .followup-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .followup-text b { color: var(--text); font-weight: 600; }
 /* live "Now" strip */
-.live { max-width: var(--chat-width); width: calc(100% - 48px); margin: 0 auto 6px; display: flex; flex-direction: column; gap: 4px; }
+.now-strip { max-width: var(--chat-width); width: calc(100% - 48px); margin: 0 auto 6px; display: flex; flex-direction: column; gap: 4px; }
 .live-row {
   display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 13px;
   background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-card); min-width: 0;
@@ -303,7 +304,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .steps li.current { color: var(--accent-strong); }
 .steps li.current::before { content: "▸ "; }
 .pill-btn .count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; }
-@media (max-width: 760px) { .live { width: calc(100% - 24px); } }
+@media (max-width: 760px) { .now-strip { width: calc(100% - 24px); } }
 .working { display: flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 14px; }
 .spark { color: var(--accent); font-size: 18px; display: inline-block; animation: spin 2.4s linear infinite; }
 .spinner { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.2s ease-in-out infinite; }

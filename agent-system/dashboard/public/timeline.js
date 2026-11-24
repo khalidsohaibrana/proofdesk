@@ -18,6 +18,13 @@ export function firstLine(markdown) {
   return (line ?? '').replace(/^#{1,6}\s+|^[-*+]\s+|\*\*|`/g, '').trim();
 }
 
+/** Prefix that says in plain words why a step was refused or failed. */
+function explainRefusal(entry) {
+  if (entry.kind === 'denied') return '⛔ Blocked: ';
+  if (/simple_expansion|command_substitution|requires approval|not allowed/i.test(entry.text)) return '⛔ Refused by the permission rules (needs approval): ';
+  return '⚠ Step failed: ';
+}
+
 const STEP_KINDS = new Set(['tool', 'denied', 'error']);
 // Expanded step groups survive live re-renders.
 const openGroups = new Set();
@@ -77,7 +84,7 @@ function stepsView(entries, root, key, active) {
     },
       h('summary', {}, h('span', { class: active ? 'spinner-ring' : 'steps-icon', 'aria-hidden': 'true' }, active ? '' : '⚙'), active ? 'Sage is working' : `Sage used ${tools.length} tool${tools.length > 1 ? 's' : ''}`),
       h('ul', {}, tools.map((entry, index) => h('li', { class: active && index === tools.length - 1 ? 'current' : '' }, humanize(relPath(entry.text, root)))))),
-    blocked.map((entry) => h('div', { class: `notice notice-${entry.kind}` }, entry.kind === 'denied' ? '⛔ Blocked: ' : '⚠ ', relPath(entry.text, root))));
+    blocked.map((entry) => h('div', { class: `notice notice-${entry.kind}` }, explainRefusal(entry), relPath(entry.text, root))));
 }
 
 function delegationView(agent, who, root, onOpen) {

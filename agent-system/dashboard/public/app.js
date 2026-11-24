@@ -168,7 +168,7 @@ function renderReplay(replay) {
   $('input').disabled = Boolean(replay);
   if (!replay) return;
   $('input').placeholder = 'Replay of a recorded run';
-  $('replay').textContent = `Replay · real run ${clockText(replay.position)} / ${clockText(replay.duration)}${replay.playing && replay.speed !== 1 ? ` · ×${replay.speed}` : ''}`;
+  $('replay').textContent = `Replay · real run ${clockText(replay.position)} / ${clockText(replay.duration)}${replay.playing && replay.speed !== 1 ? ` · ×${Math.round(replay.speed)}` : ''}`;
 }
 const REPLAY_SEEK_MS = 15_000;
 document.addEventListener('keydown', (event) => {
