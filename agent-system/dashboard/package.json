@@ -9,7 +9,10 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test test/",
-    "check": "node --check server.mjs && node --check lib/normalize.mjs && node --check lib/session.mjs && node --check lib/board.mjs && node --check lib/rotation.mjs && for f in public/*.js; do node --check $f || exit 1; done",
+    "check": "node --check server.mjs && node --check lib/normalize.mjs && node --check lib/session.mjs && node --check lib/board.mjs && node --check lib/rotation.mjs && node --check lib/tts.mjs && for f in public/*.js; do node --check $f || exit 1; done",
     "probe": "node scripts/probe.mjs"
+  },
+  "dependencies": {
+    "kokoro-js": "1.2.1"
   }
 }
