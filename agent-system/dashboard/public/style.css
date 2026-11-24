@@ -276,6 +276,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .link-btn { border: 0; background: none; padding: 2px 4px; color: var(--accent-strong); font-weight: 500; font-size: 12.5px; border-radius: 6px; }
 .link-btn:hover { background: var(--accent-soft); }
 
+.followup { display: flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--text-2); padding: 2px 0; }
+.followup-arrow { color: var(--accent); font-weight: 600; }
+.followup-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.followup-text b { color: var(--text); font-weight: 600; }
 .working { display: flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 14px; }
 .spark { color: var(--accent); font-size: 18px; display: inline-block; animation: spin 2.4s linear infinite; }
 .spinner { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.2s ease-in-out infinite; }

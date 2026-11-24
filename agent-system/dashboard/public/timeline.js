@@ -32,6 +32,9 @@ export function buildTimeline(snapshot) {
     ...snapshot.activity
       .filter((entry) => entry.agentId === 'supervisor' && STEP_KINDS.has(entry.kind))
       .map((entry) => ({ kind: 'step', seq: entry.seq ?? 0, entry })),
+    ...snapshot.activity
+      .filter((entry) => entry.agentId === 'supervisor' && entry.kind === 'followup')
+      .map((entry) => ({ kind: 'followup', seq: entry.seq ?? 0, entry })),
   ].sort((a, b) => a.seq - b.seq);
 
   // Group consecutive steps, like Claude's "Used N tools".
@@ -84,7 +87,7 @@ function delegationView(agent, who, root, onOpen) {
   return h('article', { class: `delegation hue-${who.hue} tone-${state.tone}${enterClass(`d-${agent.id}`)}` },
     h('div', { class: 'deleg-head' },
       avatar(SAGE, 'avatar-xs'), h('span', { class: 'deleg-arrow', 'aria-hidden': 'true' }, '→'), avatar(who, 'avatar-sm'),
-      h('div', { class: 'deleg-who' }, h('span', { class: 'deleg-name' }, `Sage assigned ${who.name}`), h('span', { class: 'deleg-role' }, who.role)),
+      h('div', { class: 'deleg-who' }, h('span', { class: 'deleg-name' }, `Sage assigned ${who.name}`), h('span', { class: 'deleg-role' }, `${who.role}${agent.rounds > 1 ? ` · round ${agent.rounds}` : ''}`)),
       h('span', { class: `chip chip-${state.tone}` }, state.tone === 'live' && h('span', { class: 'spinner', 'aria-hidden': 'true' }), state.label)),
     h('div', { class: 'deleg-title' }, agent.description || 'Untitled task'),
     live && h('div', { class: 'deleg-live' }, live),
@@ -92,6 +95,17 @@ function delegationView(agent, who, root, onOpen) {
     h('div', { class: 'deleg-foot' },
       h('span', {}, [elapsed(agent), agent.toolUses ? `${agent.toolUses} tool calls` : '', agent.background ? 'in background' : ''].filter(Boolean).join(' · ')),
       h('button', { class: 'link-btn', type: 'button', on: { click: () => onOpen(agent.id) } }, 'Open ›')));
+}
+
+function followupView(entry, snapshot, personas, onOpen) {
+  const target = entry.targetAgentId && snapshot.agents[entry.targetAgentId];
+  const who = target ? personas.get(target.id) ?? persona(target.type) : null;
+  const text = entry.text.replace(/^SendMessage · /, '');
+  return h('div', { class: `followup${enterClass(`f-${entry.id}`)}` },
+    avatar(SAGE, 'avatar-xs'), h('span', { class: 'followup-arrow', 'aria-hidden': 'true' }, '↩'),
+    who && avatar(who, 'avatar-xs'),
+    h('span', { class: 'followup-text' }, h('b', {}, `Sage sent ${who ? who.name : 'a teammate'} back`), ` · ${text}`),
+    target && h('button', { class: 'link-btn', type: 'button', on: { click: () => onOpen(target.id) } }, 'Open ›'));
 }
 
 function workingView(snapshot, personas) {
@@ -120,6 +134,7 @@ export function renderTimeline(container, snapshot, personas, { onOpen, onSugges
   const views = buildTimeline(snapshot).map((item) => {
     if (item.kind === 'message') return messageView(item.message, root);
     if (item.kind === 'steps') return stepsView(item.entries, root, item.seq);
+    if (item.kind === 'followup') return followupView(item.entry, snapshot, personas, onOpen);
     return delegationView(item.agent, personas.get(item.agent.id) ?? persona(item.agent.type), root, onOpen);
   });
   const error = snapshot.session.error && h('div', { class: 'notice notice-error' }, `⚠ ${snapshot.session.error}`);

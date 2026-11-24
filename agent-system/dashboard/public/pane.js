@@ -4,7 +4,7 @@ import { persona } from './team.js';
 import { avatar, elapsed, enterClass, h, relPath, statusOf, time } from './ui.js';
 
 const VERB = {
-  dispatch: 'assigned work', tool: '', say: 'said', start: 'started', done: 'finished', error: 'hit an error', denied: 'was blocked',
+  dispatch: 'assigned work', followup: 'sent work back', tool: '', say: 'said', start: 'started', done: 'finished', error: 'hit an error', denied: 'was blocked',
 };
 const STAGES = [
   ['ready', 'Ready'], ['building', 'Building'], ['review', 'Review'], ['qa', 'QA'], ['human', 'Needs you'], ['done', 'Merged'],

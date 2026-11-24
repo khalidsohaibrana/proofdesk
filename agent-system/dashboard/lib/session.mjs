@@ -6,9 +6,13 @@ import { createInterface } from 'node:readline';
 // Tools the headless supervisor and its subagents may use without a prompt.
 // The project's deny list and guard hook still apply on top of this.
 export const DEFAULT_ALLOWED_TOOLS = [
-  'Agent', 'Read', 'Glob', 'Grep', 'Write', 'Edit', 'MultiEdit', 'TodoWrite', 'WebSearch', 'WebFetch',
-  'Bash(git *)', 'Bash(gh *)', 'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)', 'Bash(pnpm *)',
-  'Bash(ls *)', 'Bash(cat *)', 'Bash(mkdir *)', 'Bash(docker compose *)',
+  // Delegation: dispatch, resume the same agent for review fixes, load deferred tools, wait on background work.
+  'Agent', 'SendMessage', 'ToolSearch', 'TaskOutput', 'Monitor',
+  'Read', 'Glob', 'Grep', 'Write', 'Edit', 'MultiEdit', 'TodoWrite', 'WebSearch', 'WebFetch',
+  'Bash(git *)', 'Bash(gh *)', 'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)', 'Bash(pnpm *)', 'Bash(docker compose *)',
+  // Read-only shell helpers agents chain with git/gh.
+  'Bash(ls *)', 'Bash(cat *)', 'Bash(head *)', 'Bash(tail *)', 'Bash(wc *)', 'Bash(grep *)', 'Bash(find *)',
+  'Bash(pwd)', 'Bash(echo *)', 'Bash(test *)', 'Bash(sleep *)', 'Bash(mkdir *)', 'Bash(sort *)', 'Bash(diff *)',
 ];
 // Interactive-only tools: the supervisor asks the human in plain text instead.
 const DISALLOWED_TOOLS = ['AskUserQuestion'];

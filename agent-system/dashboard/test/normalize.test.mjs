@@ -84,3 +84,15 @@ test('orders messages, dispatches and activity with one increasing sequence', ()
   const user = state.messages.find((m) => m.role === 'user');
   assert.ok(Object.values(state.agents).every((a) => a.seq > user.seq), 'dispatches come after the request');
 });
+
+test('a resumed builder (SendMessage) stays one teammate with two rounds; shell tasks are not agents', () => {
+  const lines = readFileSync(fileURLToPath(new URL('./fixtures/followup-session.jsonl', import.meta.url)), 'utf8').trim().split('\n');
+  const state = lines.map((line) => JSON.parse(line)).reduce((s, e) => reduce(s, e, '2026-11-24T00:00:00.000Z'), addUserMessage(initialState(), 'spike'));
+  const agents = Object.values(state.agents);
+  assert.equal(agents.length, 1, JSON.stringify(agents.map((a) => [a.type, a.taskId])));
+  assert.equal(agents[0].type, 'builder');
+  assert.equal(agents[0].rounds, 2);
+  assert.equal(agents[0].status, 'completed');
+  const followup = state.activity.find((e) => e.kind === 'followup');
+  assert.equal(followup?.targetAgentId, agents[0].id);
+});

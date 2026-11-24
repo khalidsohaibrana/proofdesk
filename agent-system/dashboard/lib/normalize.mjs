@@ -15,6 +15,7 @@ export function initialState() {
     agents: {},
     activity: [],
     denials: [],
+    aliases: {},
     seq: 0,
   };
 }
@@ -36,6 +37,7 @@ export function describeTool(name, input = {}) {
     Agent: `${input.subagent_type ?? 'agent'}: ${input.description ?? ''}`,
     Task: `${input.subagent_type ?? 'agent'}: ${input.description ?? ''}`,
     WebFetch: input.url, WebSearch: input.query, TodoWrite: 'update task list',
+    SendMessage: input.summary ?? input.message,
   }[name];
   return clip(`${name}${pick ? ` · ${pick}` : ''}`);
 }
@@ -62,6 +64,9 @@ const patchAgent = (state, id, patch) => {
 const agentIdForTask = (state, taskId) =>
   Object.values(state.agents).find((agent) => agent.taskId === taskId)?.id ?? null;
 
+// A resumed agent (SendMessage) reports under a new tool_use_id; aliases map it back to the original agent.
+const resolveId = (state, id) => (id ? state.aliases?.[id] ?? id : id);
+
 const agentLabel = (state, id) => (id === SUPERVISOR ? SUPERVISOR : state.agents[id]?.type ?? 'agent');
 
 function addSupervisorText(state, messageId, text, at) {
@@ -76,7 +81,7 @@ function addSupervisorText(state, messageId, text, at) {
 }
 
 function onAssistant(state, event, at) {
-  const owner = event.parent_tool_use_id ?? SUPERVISOR;
+  const owner = resolveId(state, event.parent_tool_use_id) ?? SUPERVISOR;
   let next = state;
   for (const block of event.message?.content ?? []) {
     if (block.type === 'text' && block.text?.trim()) {
@@ -100,16 +105,18 @@ function onAssistant(state, event, at) {
       const agent = next.agents[owner];
       next = patchAgent(next, owner, { lastTool: describeTool(block.name, block.input), toolUses: agent.toolUses + 1 });
     }
+    const isFollowup = block.name === 'SendMessage' && owner === SUPERVISOR;
     next = withActivity(next, {
       at, agentId: owner, agent: agentLabel(next, owner),
-      kind: isDispatch ? 'dispatch' : 'tool', text: describeTool(block.name, block.input),
+      kind: isDispatch ? 'dispatch' : isFollowup ? 'followup' : 'tool', text: describeTool(block.name, block.input),
+      ...(isFollowup ? { targetAgentId: agentIdForTask(next, block.input?.to) } : {}),
     });
   }
   return next;
 }
 
 function onUser(state, event, at) {
-  const owner = event.parent_tool_use_id ?? SUPERVISOR;
+  const owner = resolveId(state, event.parent_tool_use_id) ?? SUPERVISOR;
   let next = state;
   for (const block of Array.isArray(event.message?.content) ? event.message.content : []) {
     if (block.type !== 'tool_result') continue;
@@ -130,10 +137,33 @@ function onUser(state, event, at) {
   return next;
 }
 
-function onTask(state, event, at) {
-  const id = event.tool_use_id ?? agentIdForTask(state, event.task_id);
-  if (!id) return state;
+/** Which agent a task event belongs to; null for non-agent tasks (e.g. background shell commands). */
+function taskOwner(state, event) {
+  const byToolUse = resolveId(state, event.tool_use_id);
+  if (byToolUse && state.agents[byToolUse]) return { id: byToolUse, aliasFrom: null };
+  const byTask = agentIdForTask(state, event.task_id);
+  if (byTask) return { id: byTask, aliasFrom: event.tool_use_id && event.tool_use_id !== byTask ? event.tool_use_id : null };
+  const isAgent = event.task_type === 'local_agent' || Boolean(event.subagent_type);
+  return isAgent && event.subtype === 'task_started' && event.tool_use_id ? { id: event.tool_use_id, aliasFrom: null } : null;
+}
+
+function resumeAgent(state, id, event, at) {
   const agent = state.agents[id];
+  const round = (agent.rounds ?? 1) + 1;
+  const resumed = patchAgent(state, id, { status: 'running', endedAt: null, progress: '', rounds: round, taskId: event.task_id });
+  return withActivity(resumed, { at, agentId: id, agent: agent.type, kind: 'start', text: `Back on it (round ${round})` });
+}
+
+function onTask(state, event, at) {
+  const owner = taskOwner(state, event);
+  if (!owner) return state;
+  const { id } = owner;
+  const withAlias = owner.aliasFrom ? { ...state, aliases: { ...state.aliases, [owner.aliasFrom]: id } } : state;
+  const agent = withAlias.agents[id];
+  if (event.subtype === 'task_started' && agent && agent.taskId === event.task_id && agent.status !== 'running') {
+    return resumeAgent(withAlias, id, event, at);
+  }
+  state = withAlias;
   switch (event.subtype) {
     case 'task_started':
       return withActivity(patchAgent(state, id, {
