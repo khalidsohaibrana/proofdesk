@@ -36,7 +36,7 @@ Resolves the "Decisions still needing human attention" list in [MULTI_AGENT_SYST
 
 ## Approved by the product owner on 2026-11-21 (see `open-decisions.md`)
 
-- **Environments (B1, amends #4):** local only for now. Docker Compose provides Postgres, MinIO (S3-compatible), ClamAV and Mailpit. No cloud deploys and no paid services until a hosting ADR is accepted.
+- **Environments (B1, amends #4):** local only for now. Docker Compose provides Postgres, **SeaweedFS** (S3-compatible), ClamAV and Mailpit. No cloud deploys and no paid services until a hosting ADR is accepted. *Amended 2026-11-24: MinIO replaced by SeaweedFS, per ADR-0002's second amendment.*
 - **Agent identity (A1):** a separate review bot GitHub account posts reviewer, security and QA verdicts. Once it exists, `main` requires 1 GitHub approval from it.
 - **Questions (A4):** batched into one decision request per session.
 - **Handoff (A5):** `docs/delivery/status.md` is updated every session.

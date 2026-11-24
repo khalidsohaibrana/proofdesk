@@ -317,7 +317,7 @@ This SRS does **not** restate the product. It makes the approved scope addressab
 
 | ID | Requirement | Target | Source |
 |---|---|---|---|
-| NFR-ENV-1 | Phase 1 runs locally on Docker Compose (Postgres, MinIO, ClamAV, Mailpit). No cloud deploys and no paid services until a hosting ADR is accepted. | 0 external paid dependencies. | ADR-0002 amendment; OD B1 |
+| NFR-ENV-1 | Phase 1 runs locally on Docker Compose (Postgres, **SeaweedFS**, ClamAV, Mailpit). No cloud deploys and no paid services until a hosting ADR is accepted. *Amended 2026-11-24: MinIO replaced by SeaweedFS — MinIO's images were withdrawn and its repository archived. See ADR-0002, second amendment.* | 0 external paid dependencies. | ADR-0002 second amendment; OD B1 |
 | NFR-ENV-2 | Storage, email and malware scanning are reached through adapter interfaces so that hosting changes are configuration-only. | One interface per concern, with a local implementation. | ADR-0002 amendment |
 | NFR-ENV-3 | Real client data is never used in a local or tunnelled test session. | — | ADR-0002 amendment |
 
