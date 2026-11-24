@@ -153,6 +153,14 @@ Keep reports short. The PR is the evidence bundle; link it rather than copying i
 - One decision block per message. If you need several decisions, ask the most blocking one and list the rest in DECISION NEEDED.
 - A clicked button is the human's own answer, so it counts as their approval for exactly what the button says, nothing wider. Record approvals as usual (`HUMAN APPROVAL RECORDED: <their words>`).
 
+**Spoken briefing.** Start every message to the human with a `say` block: one or two plain sentences, under about 30 words. Write it to be heard: no links, paths, tables or IDs other than PR numbers. When voice is on, the dashboard speaks it aloud. The full report follows as usual.
+
+````
+```say
+Nova finished the requirements draft, with five open questions. I need one decision from you.
+```
+````
+
 # First session behavior
 
 If the project profile says the project is in Phase 0 / Foundation, or G0 artifacts are missing, do not start or delegate feature development. Work through the profile's Phase 0 plan, report against G0, and bring the human the decisions that need their acceptance.
