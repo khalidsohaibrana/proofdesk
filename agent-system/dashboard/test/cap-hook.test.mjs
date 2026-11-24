@@ -18,7 +18,7 @@ after(() => server.close());
 
 const project = mkdtempSync(join(tmpdir(), 'cap-'));
 mkdirSync(join(project, '.claude'));
-writeFileSync(join(project, '.claude', 'agent-system.json'), JSON.stringify({ maxConcurrentAgents: 7 }));
+writeFileSync(join(project, '.claude', 'agent-system.json'), JSON.stringify({ agentLimits: { total: 7, builder: 5, reviewer: 1, 'security-reviewer': 1, qa: 1 } }));
 
 const running = (n, extra = {}) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`t${i}`, { id: `t${i}`, taskId: `task${i}`, type: 'builder', description: `job ${i}`, status: 'running' }]).concat(Object.entries(extra)));
 
@@ -32,7 +32,8 @@ test('blocks the 8th concurrent agent with a clear message', async () => {
   agents = running(7);
   const result = await runHookAsync({ tool_name: 'Agent', tool_use_id: 'new' });
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /7 subagents are already running \(limit 7\)/);
+  assert.match(result.stderr, /7 subagents are already running \(team limit 7\)/);
+  assert.match(result.stderr, /product owner's explicit approval/);
 });
 
 test('does not count the dispatch being checked against itself', async () => {
@@ -74,3 +75,24 @@ function runHookAsync(input) {
     child.stdin.end(JSON.stringify(input));
   });
 }
+
+const agent = (id, type, status = 'running', taskId = id) => [id, { id, taskId, type, description: id, status }];
+
+test('a sixth builder is blocked even below the team limit', async () => {
+  agents = Object.fromEntries([1, 2, 3, 4, 5].map((n) => agent(`b${n}`, 'builder')));
+  const result = await runHookAsync({ tool_name: 'Agent', tool_use_id: 'new', tool_input: { subagent_type: 'builder' } });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /5 builder already running \(limit 5 for this role\)/);
+});
+
+test('a second reviewer is blocked; a QA alongside it is allowed', async () => {
+  agents = Object.fromEntries([agent('r1', 'reviewer'), agent('b1', 'builder')]);
+  assert.equal((await runHookAsync({ tool_name: 'Agent', tool_use_id: 'n1', tool_input: { subagent_type: 'reviewer' } })).status, 2);
+  assert.equal((await runHookAsync({ tool_name: 'Agent', tool_use_id: 'n2', tool_input: { subagent_type: 'qa' } })).status, 0);
+});
+
+test('resuming a finished security reviewer counts against its role', async () => {
+  agents = Object.fromEntries([agent('s1', 'security-reviewer'), agent('s0', 'security-reviewer', 'completed', 'old-task')]);
+  const result = await runHookAsync({ tool_name: 'SendMessage', tool_input: { to: 'old-task' } });
+  assert.equal(result.status, 2);
+});
