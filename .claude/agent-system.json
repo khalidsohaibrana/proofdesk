@@ -1,4 +1,5 @@
 {
+  "projectName": "ProofDesk",
   "profile": "docs/delivery/project-profile.md",
   "docsOnlyPaths": [
     "product/",
@@ -7,5 +8,12 @@
     ".claude/",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/"
-  ]
+  ],
+  "agentLimits": {
+    "total": 7,
+    "builder": 5,
+    "reviewer": 1,
+    "security-reviewer": 1,
+    "qa": 1
+  }
 }

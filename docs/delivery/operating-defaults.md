@@ -54,3 +54,5 @@ Resolves the "Decisions still needing human attention" list in [MULTI_AGENT_SYST
 - **License (B10):** none (all rights reserved).
 - **Deferred:** B2 cloud accounts, B3 domain, B4 region (until hosting), B7 retention, A13 demo log, B11 pilot recruitment.
 
+## Team capacity (approved by the product owner, 2026-11-24)
+- **max 7 subagents running at once**; per role max **5 builders, 1 reviewer, 1 security reviewer, 1 QA** (discovery/helper agents count toward 7). Set in `.claude/agent-system.json` → `agentLimits`, enforced by `agent-system/hooks/cap-subagents.mjs`. **More needs the human's explicit approval**; agents never edit the limits
