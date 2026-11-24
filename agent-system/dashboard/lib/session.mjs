@@ -62,6 +62,7 @@ export function checkPlanAuth(command = 'claude') {
  * @property {string} [model]      optional model override
  * @property {string[]} [allowedTools]
  * @property {string} [command]    CLI binary (default "claude")
+ * @property {string} [dashboardUrl] this dashboard's URL, passed to hooks as AGENT_DASHBOARD_URL
  */
 
 export class SupervisorSession extends EventEmitter {
@@ -98,7 +99,8 @@ export class SupervisorSession extends EventEmitter {
     const child = spawn(this.options.command, this.buildArgs(resumeId), {
       cwd: this.options.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: planOnlyEnv(),
+      // Hooks (e.g. the team-capacity cap) count agents through *this* dashboard, not another one.
+      env: { ...planOnlyEnv(), ...(this.options.dashboardUrl ? { AGENT_DASHBOARD_URL: this.options.dashboardUrl } : {}) },
     });
     this.child = child;
     let stderrTail = '';

@@ -63,6 +63,7 @@ let board = { gate: '', tickets: [], pulls: [], error: null, updatedAt: null };
 const clients = new Set();
 const session = new SupervisorSession({
   cwd: PROJECT,
+  dashboardUrl: `http://${HOST}:${PORT}`,
   model: process.env.SUPERVISOR_MODEL || config.dashboard.model,
   ...(config.dashboard.allowedTools ? { allowedTools: config.dashboard.allowedTools } : {}),
 });

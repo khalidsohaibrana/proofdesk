@@ -50,3 +50,8 @@ test('reducer records the auth source reported by the CLI', () => {
   const state = reduce(initialState(), { type: 'system', subtype: 'init', session_id: 's', model: 'm', apiKeySource: 'none' });
   assert.equal(state.session.apiKeySource, 'none');
 });
+
+test('the supervisor process is told which dashboard to report to', () => {
+  const session = new SupervisorSession({ cwd: '/tmp', dashboardUrl: 'http://127.0.0.1:4180' });
+  assert.equal(session.options.dashboardUrl, 'http://127.0.0.1:4180');
+});
